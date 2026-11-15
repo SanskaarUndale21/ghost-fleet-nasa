@@ -450,7 +450,7 @@ export function CruiseScene({ a, beat }: { a: Artifact; beat: Beat }) {
       <directionalLight position={[-20, 10, 30]} intensity={2.4} />
       <group position={E}>
         <Earth r={4} sunDir={new THREE.Vector3(-0.6, 0.3, 0.75)} spin={0.03} />
-        <Html position={[0, -5.2, 0]} center className="space-tag">
+        <Html zIndexRange={[5, 0]} position={[0, -5.2, 0]} center className="space-tag">
           Earth
         </Html>
       </group>
@@ -462,7 +462,7 @@ export function CruiseScene({ a, beat }: { a: Artifact; beat: Beat }) {
             <BodyMesh body={dest} r={DEST_R[dest]} />
           </Suspense>
         )}
-        <Html position={[0, -DEST_R[dest] - 1.2, 0]} center className="space-tag">
+        <Html zIndexRange={[5, 0]} position={[0, -DEST_R[dest] - 1.2, 0]} center className="space-tag">
           {dest === 'sun' ? 'Sun' : m.dest === 'ceres' ? 'Vesta, then Ceres' : dest[0].toUpperCase() + dest.slice(1)}
         </Html>
       </group>
@@ -586,7 +586,7 @@ export function EntryScene({ a, beat }: { a: Artifact; beat: Beat }) {
           <Suspense fallback={null}>
             <ModelFit url={NASA_MODELS.mro} size={2.4} />
           </Suspense>
-          <Html position={[0, -1.6, 0]} center className="model-tag">
+          <Html zIndexRange={[5, 0]} position={[0, -1.6, 0]} center className="model-tag">
             <b>Mars Reconnaissance Orbiter</b>
             <span>photographing Phoenix under its parachute</span>
           </Html>
@@ -720,7 +720,7 @@ export function FlybyScene({ a, beat }: { a: Artifact; beat: Beat }) {
             <ringGeometry args={[7, 12, 64]} />
             <meshBasicMaterial color="#d8c69a" side={THREE.DoubleSide} transparent opacity={0.6} />
           </mesh>
-          <Html position={[0, -8, 0]} center className="space-tag">
+          <Html zIndexRange={[5, 0]} position={[0, -8, 0]} center className="space-tag">
             Saturn (Pioneer 11, 1979)
           </Html>
         </group>
@@ -737,7 +737,7 @@ export function FlybyScene({ a, beat }: { a: Artifact; beat: Beat }) {
           <Suspense fallback={null}>
             <ModelFit url={NASA_MODELS.voyager} size={3.4} />
           </Suspense>
-          <Html position={[0, -2.4, 0]} center className="model-tag">
+          <Html zIndexRange={[5, 0]} position={[0, -2.4, 0]} center className="model-tag">
             <b>Voyager 1 &amp; 2</b>
             <span>Launched 1977, followed the path Pioneer opened</span>
           </Html>
@@ -800,16 +800,16 @@ export function InteriorScene({ beat }: { beat: Beat }) {
         <sphereGeometry args={[0.15, 12, 8]} />
         <meshBasicMaterial color="#7dffd0" toneMapped={false} />
       </mesh>
-      <Html position={src.clone().multiplyScalar(1.15)} center className="space-tag">
+      <Html zIndexRange={[5, 0]} position={src.clone().multiplyScalar(1.15)} center className="space-tag">
         {body === 'mars' ? 'InSight' : 'Apollo seismometers'}
       </Html>
-      <Html position={cutDir.clone().multiplyScalar(R * 1.02).add(new THREE.Vector3(0, -R * 0.35, 0))} center className="layer-tag">
+      <Html zIndexRange={[5, 0]} position={cutDir.clone().multiplyScalar(R * 1.02).add(new THREE.Vector3(0, -R * 0.35, 0))} center className="layer-tag">
         Crust
       </Html>
-      <Html position={cutDir.clone().multiplyScalar(R * (L.mantle + L.core) * 0.5).add(new THREE.Vector3(0, -R * 0.15, 0))} center className="layer-tag">
+      <Html zIndexRange={[5, 0]} position={cutDir.clone().multiplyScalar(R * (L.mantle + L.core) * 0.5).add(new THREE.Vector3(0, -R * 0.15, 0))} center className="layer-tag">
         Mantle
       </Html>
-      <Html position={cutDir.clone().multiplyScalar(R * L.core * 0.3)} center className="layer-tag core">
+      <Html zIndexRange={[5, 0]} position={cutDir.clone().multiplyScalar(R * L.core * 0.3)} center className="layer-tag core">
         Core
       </Html>
     </>
@@ -909,7 +909,7 @@ export function LegacyScene({ a, beat }: { a: Artifact; beat: Beat }) {
         ))}
       </group>
       {list.map((m, i) => (
-        <Html key={m.label} position={[pos[i][0], -m.size * 0.55 - 0.8, pos[i][2]]} center className="model-tag">
+        <Html zIndexRange={[5, 0]} key={m.label} position={[pos[i][0], -m.size * 0.55 - 0.8, pos[i][2]]} center className="model-tag">
           <b>{m.label}</b>
           <span>{m.sub}</span>
         </Html>
@@ -919,7 +919,7 @@ export function LegacyScene({ a, beat }: { a: Artifact; beat: Beat }) {
           <CraftModel a={a} craft="self" />
         </Suspense>
       </group>
-      <Html position={[0, 3.2, -6]} center className="model-tag dim">
+      <Html zIndexRange={[5, 0]} position={[0, 3.2, -6]} center className="model-tag dim">
         <b>{a.name}</b>
       </Html>
     </>

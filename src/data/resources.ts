@@ -1,6 +1,8 @@
 // Every link scraped from the challenge Resources tab (via spaceappschallenge.org GraphQL API)
 export type ResourceLink = { title: string; url: string; note: string; group: string }
 
+export const REPO_URL = 'https://github.com/SanskaarUndale21/ghost-fleet-nasa'
+
 export const CHALLENGE_URL =
   'https://www.spaceappschallenge.org/2026/challenges/nasas-discarded-equipment-storytelling/'
 

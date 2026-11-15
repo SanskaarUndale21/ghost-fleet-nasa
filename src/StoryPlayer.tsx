@@ -167,6 +167,21 @@ export function StoryPlayer({
   const el = audio.current
   const tSpeech = sound && el && el.currentTime > 0 ? el.currentTime : elapsed.current * (audioDur / readDuration(beat))
   const tokens = useMemo(() => beat.text.split(/\s+/), [beat])
+  // sentence index for each word (phones show one sentence at a time)
+  const sentenceOf = useMemo(() => {
+    let k = 0
+    return tokens.map((tk) => {
+      const s = k
+      if (/[.!?]["”']?$/.test(tk)) k++
+      return s
+    })
+  }, [tokens])
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.innerWidth < 760)
+  useEffect(() => {
+    const on = () => setCompact(window.innerWidth < 760)
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
   const spoken = useMemo(() => {
     if (!cap || !cap.w.length) return Math.floor((tSpeech / Math.max(1, readDuration(beat))) * tokens.length)
     let n = 0
@@ -205,11 +220,13 @@ export function StoryPlayer({
             {beat.title}
           </p>
           <p className="cap-text">
-            {tokens.map((tk, i) => (
-              <span key={i} className={i < spoken ? 'said' : ''}>
-                {tk}{' '}
-              </span>
-            ))}
+            {tokens.map((tk, i) =>
+              compact && sentenceOf[i] !== sentenceOf[Math.min(Math.max(spoken - 1, 0), tokens.length - 1)] ? null : (
+                <span key={i} className={i < spoken ? 'said' : ''}>
+                  {tk}{' '}
+                </span>
+              ),
+            )}
           </p>
         </section>
       )}
@@ -266,13 +283,14 @@ export function StoryPlayer({
             CC
           </button>
           <button className={'t-pill' + (sound ? ' on' : '')} onClick={toggleSound} aria-pressed={sound}>
-            {sound ? '🔊 Narration' : '🔈 Muted'}
+            {sound ? '🔊' : '🔈'}
+            <span className="long">{sound ? ' Narration' : ' Muted'}</span>
           </button>
           <button className="t-pill quiz-pill" onClick={() => setChapter(total)} disabled={ended}>
-            ★ Quiz {best > 0 ? `${best}/3` : ''}
+            ★<span className="long"> Quiz</span> {best > 0 ? `${best}/3` : ''}
           </button>
           <button className={'t-pill' + (file ? ' on' : '')} onClick={() => setFile(!file)} aria-expanded={file}>
-            ☰ Mission file
+            ☰<span className="long"> Mission file</span>
           </button>
         </div>
       </footer>

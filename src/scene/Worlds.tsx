@@ -186,7 +186,7 @@ function HubTarget({
       >
         {children}
       </group>
-      <Html position={[d.world === 'mars' ? 2.2 : d.world === 'moon' ? 1.15 : portrait ? 0.9 : -0.9, 0, 0]} zIndexRange={[10, 0]} style={{ transform: d.world === 'deep' && !portrait ? 'translate(-100%, -50%)' : 'translateY(-50%)' }}>
+      <Html position={[d.world === 'mars' ? 2.2 : d.world === 'moon' ? 1.15 : portrait ? 0.9 : -0.9, 0, 0]} zIndexRange={[5, 0]} style={{ transform: d.world === 'deep' && !portrait ? 'translate(-100%, -50%)' : 'translateY(-50%)' }}>
         <button
           className={'dest-card' + (on ? ' on' : '')}
           onClick={() => onWorld(d.world)}
@@ -361,7 +361,7 @@ function Marker({
         <meshBasicMaterial color={color} transparent opacity={0.6} toneMapped={false} />
       </mesh>
       {facing && (hover || active) && (
-        <Html position={[0, 0, 0.3]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+        <Html position={[0, 0, 0.3]} center zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
           <div className="pin-label">
             <b>{siteLabel}</b>
             <span>{a.span}</span>
@@ -446,7 +446,7 @@ export function DeepSpace({
       <pointLight position={[0, 0, 0]} intensity={60} distance={60} decay={1.4} color="#fff0d6" />
       {/* Sun */}
       <Sun r={1.0} />
-      <Html position={[0, -1.4, 0]} center className="space-tag">
+      <Html zIndexRange={[5, 0]} position={[0, -1.4, 0]} center className="space-tag">
         Sun
       </Html>
       {rings.map((r) => (
@@ -464,7 +464,7 @@ export function DeepSpace({
               <sphereGeometry args={[b.size, 32, 24]} />
               <meshStandardMaterial map={b.tex ?? null} color={b.tex ? '#ffffff' : b.color} roughness={1} />
             </mesh>
-            <Html position={[0, -b.size - 0.25, 0]} center className="space-tag">
+            <Html zIndexRange={[5, 0]} position={[0, -b.size - 0.25, 0]} center className="space-tag">
               {b.label}
             </Html>
           </group>
@@ -473,7 +473,7 @@ export function DeepSpace({
       {/* Pioneer escape trajectories */}
       <Line points={p10} color="#7dffd0" lineWidth={1.4} dashed dashSize={0.35} gapSize={0.2} />
       <Line points={p11} color="#7dffd0" lineWidth={1.4} dashed dashSize={0.35} gapSize={0.2} transparent opacity={0.6} />
-      <Html position={p11[p11.length - 1]} center className="space-tag dim">
+      <Html zIndexRange={[5, 0]} position={p11[p11.length - 1]} center className="space-tag dim">
         Pioneer 11 (toward Aquila)
       </Html>
       {/* Kepler trail arc */}
@@ -487,7 +487,7 @@ export function DeepSpace({
       {list.map((a) => (
         <SpaceProbe key={a.id} a={a} p={pos(a)} active={selected === a.id} seen={visited.has(a.id)} onSelect={onSelect} />
       ))}
-      <Html position={[0, -3, 15.5]} center className="space-tag dim">
+      <Html zIndexRange={[5, 0]} position={[0, -3, 15.5]} center className="space-tag dim">
         Schematic view. Distances not to scale.
       </Html>
     </>
@@ -559,7 +559,7 @@ function SpaceProbe({
           <meshStandardMaterial color="#8c7a64" roughness={1} />
         </mesh>
       )}
-      <Html position={[0, 0.5, 0]} center zIndexRange={[20, 0]}>
+      <Html position={[0, 0.5, 0]} center zIndexRange={[5, 0]}>
         <button className={'probe-tag' + (active ? ' on' : '')} onClick={() => onSelect(a.id)}>
           {a.name}
         </button>
@@ -664,7 +664,7 @@ export function ArtifactStage({ a, beat, replay }: { a: Artifact; beat: Beat; re
           <group position={[a.id === 'sojourner' ? 3.6 : 4.2, terrainHeight('mars', 4, 0), -0.6]} rotation={[0, -0.6, 0]}>
             <ModelFit url={NASA_MODELS.perseverance} size={a.id === 'sojourner' ? 5.6 : 4.6} anchor="bottom" />
           </group>
-          <Html position={[a.id === 'sojourner' ? 3.6 : 4.2, 3.6, -0.6]} center className="model-tag">
+          <Html zIndexRange={[5, 0]} position={[a.id === 'sojourner' ? 3.6 : 4.2, 3.6, -0.6]} center className="model-tag">
             <b>Perseverance (2021)</b>
             <span>same rocker-bogie idea, about 100 times heavier than Sojourner</span>
           </Html>
@@ -842,7 +842,7 @@ function Orbiter({ url, r, size, speed, tilt, phase, label }: { url: string; r: 
     <group ref={g} onPointerOver={() => setHover(true)} onPointerOut={() => setHover(false)}>
       <ModelFit url={url} size={size} />
       {hover && (
-        <Html center position={[0, size * 0.9, 0]} className="space-tag">
+        <Html zIndexRange={[5, 0]} center position={[0, size * 0.9, 0]} className="space-tag">
           {label}
         </Html>
       )}
@@ -862,7 +862,7 @@ function Flyover({ url, label, sub }: { url: string; label: string; sub: string 
   return (
     <group ref={g}>
       <ModelFit url={url} size={2.2} />
-      <Html center position={[0, -1.8, 0]} className="model-tag">
+      <Html zIndexRange={[5, 0]} center position={[0, -1.8, 0]} className="model-tag">
         <b>{label}</b>
         <span>{sub}</span>
       </Html>

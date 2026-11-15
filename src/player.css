@@ -126,3 +126,94 @@
 @media (max-width: 760px) { .seg-quiz span { display: none; } .badge.score { display: none; } }
 .cc-pill { font-weight: 700; letter-spacing: .06em; }
 .cc-pill:not(.on) { text-decoration: line-through; opacity: .7; }
+
+/* ───── phone pass ───── */
+.app canvas { touch-action: none; }
+@media (max-width: 760px) {
+  .long { display: none; }
+  .topbar { flex-wrap: nowrap; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; gap: 8px; }
+  .brand-mark { font-size: 22px; }
+  .brand b { font-size: 11px; letter-spacing: .18em; }
+  .top-right { gap: 6px; }
+  .badge, .badge.score { display: inline-flex; font-size: 11px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8,12,22,.6); }
+  .topbar .ghost-btn { padding: 6px 10px; font-size: 11px; }
+  .hero { top: calc(64px + env(safe-area-inset-top)); }
+  .hero .eyebrow { font-size: 9.5px; letter-spacing: .1em; }
+  .roster { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .roster-head { font-size: 9.5px; }
+  .nav-hint { bottom: calc(150px + env(safe-area-inset-bottom)); }
+
+  .mission-title { top: calc(54px + env(safe-area-inset-top)); }
+  .mission-title .back-link { margin-bottom: 6px; }
+  .mission-title .eyebrow { font-size: 9.5px; margin-bottom: 2px; }
+  .mission-title h1 { font-size: 22px; margin-bottom: 4px; }
+  .mission-title .hud-sub { display: none; }
+  .mission-title .hud-label { font-size: 12px; margin-top: 4px; }
+  .mission-title .hud-tele { font-size: 11px; margin-top: 4px; }
+  .player-ui .highlight { top: calc(178px + env(safe-area-inset-top)); bottom: auto; padding: 8px 12px; }
+  .player-ui .highlight b { font-size: 16px; }
+
+  .transport { padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); gap: 6px; flex-wrap: wrap; }
+  .scrubber { order: -1; flex-basis: 100%; height: 18px; padding-top: 4px; }
+  .seg-quiz { height: 18px; margin-top: -6px; padding: 0 7px; }
+  .t-btn { width: 34px; height: 34px; }
+  .t-play { width: 42px; height: 42px; }
+  .t-right { margin-left: auto; gap: 5px; }
+  .t-pill { padding: 7px 10px; font-size: 12px; min-width: 36px; }
+
+  .captions { bottom: calc(108px + env(safe-area-inset-bottom)); width: calc(100% - 16px); }
+  .cap-title { font-size: 10px; margin-bottom: 6px; gap: 6px; }
+  .cap-text { font-size: 16px; line-height: 1.5; padding: 4px 8px; }
+
+  .mission-end { top: auto; bottom: calc(112px + env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 18px 16px; max-height: calc(100% - 200px); overflow: auto; }
+  .mission-end h2 { font-size: 20px; }
+  .mission-end .opts button { font-size: 15px; padding: 10px 12px; }
+  .score-big { font-size: 34px; }
+  .mission-file { padding: calc(64px + env(safe-area-inset-top)) 18px calc(90px + env(safe-area-inset-bottom)); }
+  .mission-file .close { top: calc(60px + env(safe-area-inset-top)); }
+
+  .world-list { bottom: calc(12px + env(safe-area-inset-bottom)); max-height: 42%; padding: 12px; }
+  .world-list li button { padding: 6px 8px; }
+  .preview { bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .modal { padding: calc(56px + env(safe-area-inset-top)) 10px 10px; align-items: start; }
+  .modal-card { padding: 18px 16px; }
+  .intro { align-items: end; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  .intro p { font-size: 15px; }
+  .intro h1 { font-size: 30px; }
+}
+/* landscape phones */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero-sub, .mission-title .hud-sub, .mission-title .hud-tele, .mission-title .eyebrow { display: none; }
+  .hero h1 { font-size: 28px; }
+  .mission-title { top: 50px; }
+  .mission-title h1 { font-size: 20px; }
+  .captions { bottom: 64px; }
+  .cap-text { font-size: 15px; }
+  .transport { height: 56px; }
+  .t-play { width: 40px; height: 40px; }
+  .player-ui .highlight { top: 52px; right: 12px; padding: 6px 10px; }
+  .player-ui .highlight b { font-size: 15px; }
+  .roster { display: none; }
+  .world-list { top: 52px; max-height: calc(100% - 64px); width: 240px; }
+  .mission-end { max-height: calc(100% - 80px); overflow: auto; top: 50%; }
+}
+@media (max-width: 760px) {
+  .app .topbar { flex-wrap: nowrap; gap: 6px; }
+  .app .brand b { font-size: 10.5px; letter-spacing: .14em; }
+  .app .brand small { display: none; }
+  .app .badge, .app .badge.score { font-size: 10.5px; padding: 4px 7px; gap: 4px; }
+  .app .topbar .ghost-btn { padding: 5px 9px; font-size: 10.5px; }
+}
+@media (max-width: 360px) { .app .brand b { display: none; } }
+@media (max-height: 500px) and (orientation: landscape) {
+  .app .brand small, .nav-hint span, .seg span, .dest-sub, .dest-count { display: none; }
+  .dest-card { padding: 5px 10px; }
+  .dest-name { font-size: 15px; }
+  .hero { top: 54px; }
+  .hero .eyebrow { display: none; }
+  .hero h1 { font-size: 26px; }
+  .crumbs { display: none; }
+  .t-pill { padding: 6px 10px; font-size: 11px; }
+}
+.badge, .brand b { white-space: nowrap; }
+@media (max-width: 420px) { .app .brand b { display: none; } }

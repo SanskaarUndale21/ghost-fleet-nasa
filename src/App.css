@@ -320,3 +320,5 @@
 .model-tag span { font-family: var(--mono); font-size: 10px; color: var(--mute); }
 .model-tag.dim { opacity: .7; }
 @media (max-width: 760px) { .nav-hint span { display: none; } .nav-hint { bottom: 150px; right: 12px; } }
+.gh-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: inherit; }
+.gh-btn svg { flex: none; }
