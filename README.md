@@ -40,5 +40,6 @@ Vite, React, TypeScript, three.js, @react-three/fiber, @react-three/drei
 - Atlas-Centaur, Titan IIIE, Delta II, Atlas V rockets, aeroshells, parachutes and sky crane are simplified models built for this project
 - Moon map: NASA SVS CGI Moon Kit (LRO LROC color)
 - Earth (day, night lights, clouds), Mars, Jupiter, Milky Way textures: [Solar System Scope](https://www.solarsystemscope.com/textures/) (CC BY 4.0)
-- Narration: pre-generated neural voices (one per spacecraft) with word timings, see .
-  Regenerate after editing story text: 
+- Narration: pre-generated neural voices (one per spacecraft) with word timings, see `scripts/narrate.py`.
+  Regenerate after editing story text:
+  `node scripts/dump-beats.ts > beats.json && python scripts/narrate.py beats.json public/audio`
