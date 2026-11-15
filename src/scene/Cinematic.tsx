@@ -4,12 +4,14 @@ import { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { CameraControls as CC } from '@react-three/drei'
 import type { Artifact } from '../data/artifacts'
-import type { Beat, Body, Craft, RocketKind } from '../data/missions'
+import type { Beat, Body, Craft } from '../data/missions'
 import { Flame, Particles, type ParticlesHandle } from './Effects'
 import { ArtifactModel, newRig } from './Models'
 import { motion, playback, smooth } from './motionState'
 import { fbm, latLonToVec } from './util'
 import { SpaceSky } from './Worlds'
+import { Earth, Sun, TEX } from './Planets'
+import { LaunchTower, ProcRocket, getSpec, stage1Height } from './Rockets'
 
 const useCtl = () => useThree((s) => s.controls) as unknown as CC | null
 
@@ -45,108 +47,7 @@ function useDirector(fn: (t: number, cam: (px: number, py: number, pz: number, t
   })
 }
 
-/* ═════════════════════ ROCKETS ═════════════════════ */
-type RocketSpec = {
-  core: { r: number; h: number; color: string }
-  upper: { r: number; h: number; color: string }
-  fairing: { r: number; h: number; color: string }
-  boosters: { n: number; r: number; h: number; color: string }
-}
-const ROCKETS: Record<Exclude<RocketKind, 'saturnv'>, RocketSpec> = {
-  'atlas-centaur': {
-    core: { r: 0.5, h: 6.5, color: '#c9ccd1' },
-    upper: { r: 0.5, h: 2.6, color: '#d9dbde' },
-    fairing: { r: 0.55, h: 2.2, color: '#f2f2ef' },
-    boosters: { n: 0, r: 0, h: 0, color: '' },
-  },
-  titan3e: {
-    core: { r: 0.5, h: 7.2, color: '#d6d4cc' },
-    upper: { r: 0.5, h: 2.4, color: '#c9ccd1' },
-    fairing: { r: 0.72, h: 4.2, color: '#f4f4f0' },
-    boosters: { n: 2, r: 0.55, h: 8.2, color: '#e8e8e4' },
-  },
-  delta2: {
-    core: { r: 0.42, h: 6.4, color: '#4f9c9a' },
-    upper: { r: 0.42, h: 1.6, color: '#efefea' },
-    fairing: { r: 0.5, h: 2.4, color: '#f5f5f2' },
-    boosters: { n: 9, r: 0.17, h: 3.2, color: '#f2f2ee' },
-  },
-  delta2h: {
-    core: { r: 0.42, h: 6.4, color: '#4f9c9a' },
-    upper: { r: 0.42, h: 1.6, color: '#efefea' },
-    fairing: { r: 0.5, h: 2.6, color: '#f5f5f2' },
-    boosters: { n: 9, r: 0.21, h: 3.8, color: '#f2f2ee' },
-  },
-  atlasv: {
-    core: { r: 0.6, h: 7.8, color: '#c7793c' },
-    upper: { r: 0.6, h: 2.6, color: '#eceae5' },
-    fairing: { r: 0.72, h: 3.6, color: '#f5f5f2' },
-    boosters: { n: 0, r: 0.2, h: 4.2, color: '#f2f2ee' },
-  },
-}
-
-function ProcRocket({ kind, boosters, stage1 }: { kind: Exclude<RocketKind, 'saturnv'>; boosters?: number; stage1: React.RefObject<THREE.Group | null> }) {
-  const s = ROCKETS[kind]
-  const nb = boosters ?? s.boosters.n
-  const top = s.core.h
-  return (
-    <group>
-      <group ref={stage1}>
-        <mesh position={[0, s.core.h / 2, 0]} castShadow>
-          <cylinderGeometry args={[s.core.r, s.core.r, s.core.h, 32]} />
-          <meshStandardMaterial color={s.core.color} metalness={0.5} roughness={0.45} />
-        </mesh>
-        {/* USA band */}
-        <mesh position={[0, s.core.h * 0.62, 0]}>
-          <cylinderGeometry args={[s.core.r + 0.005, s.core.r + 0.005, 0.25, 32]} />
-          <meshStandardMaterial color="#20304a" />
-        </mesh>
-        <mesh position={[0, -0.25, 0]}>
-          <cylinderGeometry args={[s.core.r * 0.5, s.core.r * 0.8, 0.5, 20]} />
-          <meshStandardMaterial color="#3a3a3a" metalness={0.8} />
-        </mesh>
-        {Array.from({ length: nb }).map((_, i) => {
-          const a = (i / nb) * Math.PI * 2
-          const R = s.core.r + (nb ? (kind === 'titan3e' ? s.boosters.r : s.boosters.r || 0.2) : 0)
-          const bh = s.boosters.h || 4.2
-          const br = s.boosters.r || 0.2
-          return (
-            <group key={i} position={[Math.cos(a) * R, 0, Math.sin(a) * R]}>
-              <mesh position={[0, bh / 2, 0]} castShadow>
-                <cylinderGeometry args={[br, br, bh, 16]} />
-                <meshStandardMaterial color={s.boosters.color || '#f2f2ee'} metalness={0.2} roughness={0.6} />
-              </mesh>
-              <mesh position={[0, bh + br * 0.6, 0]}>
-                <coneGeometry args={[br, br * 1.6, 16]} />
-                <meshStandardMaterial color={s.boosters.color || '#f2f2ee'} />
-              </mesh>
-              {kind === 'titan3e' &&
-                [0.2, 0.4, 0.6, 0.8].map((f) => (
-                  <mesh key={f} position={[0, bh * f, 0]}>
-                    <cylinderGeometry args={[br + 0.01, br + 0.01, 0.35, 16]} />
-                    <meshStandardMaterial color="#202020" />
-                  </mesh>
-                ))}
-            </group>
-          )
-        })}
-      </group>
-      <mesh position={[0, top + s.upper.h / 2, 0]} castShadow>
-        <cylinderGeometry args={[s.upper.r, s.upper.r, s.upper.h, 32]} />
-        <meshStandardMaterial color={s.upper.color} metalness={0.6} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, top + s.upper.h + s.fairing.h * 0.35, 0]} castShadow>
-        <cylinderGeometry args={[s.fairing.r, s.fairing.r, s.fairing.h * 0.7, 32]} />
-        <meshStandardMaterial color={s.fairing.color} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, top + s.upper.h + s.fairing.h * 0.7 + s.fairing.h * 0.2, 0]} castShadow>
-        <coneGeometry args={[s.fairing.r, s.fairing.h * 0.4, 32]} />
-        <meshStandardMaterial color={s.fairing.color} roughness={0.5} />
-      </mesh>
-    </group>
-  )
-}
-
+/* ═════════════════════ ROCKETS (see Rockets.tsx) ═════════════════════ */
 function SaturnV({ stage1 }: { stage1: React.RefObject<THREE.Group | null> }) {
   const { scene } = useGLTF('/models/saturn-v.glb')
   const { obj, s, off, lower } = useMemo(() => {
@@ -188,13 +89,15 @@ export function LaunchScene({ a, beat }: { a: Artifact; beat: Beat }) {
   const smoke = useRef<ParticlesHandle>(null)
   const sky = useRef<THREE.Mesh>(null)
   const ground = useRef<THREE.Group>(null)
-  const earth = useRef<THREE.Mesh>(null)
+  const earth = useRef<THREE.Group>(null)
   const skyGroup = useRef<THREE.Group>(null)
   const flame = useRef({ on: 0, pos: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0) })
   const sep = useRef({ done: false, pos: new THREE.Vector3(), vel: new THREE.Vector3(), spin: 0 })
-  const earthTex = useTexture('/textures/earth.jpg')
-  earthTex.colorSpace = THREE.SRGBColorSpace
-  const H = m.rocket === 'saturnv' ? 14 : 12
+  const H = useMemo(() => {
+    if (m.rocket === 'saturnv') return 14
+    const sp = getSpec(m.rocket, m.rocketName)
+    return sp.core.h + (sp.interstage?.h ?? 0) + sp.upper.h + (sp.fairing.boattail ?? 0) + sp.fairing.cyl + sp.fairing.nose
+  }, [m])
   const skyMat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -227,13 +130,12 @@ export function LaunchScene({ a, beat }: { a: Artifact; beat: Beat }) {
     if (earth.current) {
       earth.current.visible = y > 90
       earth.current.position.set(x, y - 600 - 25 - y * 0.25, 0)
-      ;(earth.current.material as THREE.MeshStandardMaterial).opacity = smooth(90, 200, y)
     }
     // flame + smoke
     const ign = smooth(T0 - 1, T0, t)
     flame.current.on = ign * 1.4
     const up = new THREE.Vector3(0, 1, 0).applyEuler(g.rotation)
-    const baseY = sep.current.done ? (m.rocket === 'saturnv' ? H * 0.31 : ROCKETS[m.rocket].core.h) : 0
+    const baseY = sep.current.done ? (m.rocket === 'saturnv' ? H * 0.31 : stage1Height(m.rocket, m.rocketName)) : 0
     flame.current.pos.set(0, baseY - 0.3, 0)
     const flameWorld = g.position.clone().addScaledVector(up, baseY - 0.3)
     if (ign > 0.1 && y < 30) {
@@ -314,25 +216,42 @@ export function LaunchScene({ a, beat }: { a: Artifact; beat: Beat }) {
           <cylinderGeometry args={[6, 7, 0.4, 32]} />
           <meshStandardMaterial color="#9b9a95" roughness={1} />
         </mesh>
-        <mesh position={[-2.8, H * 0.6, 0]} castShadow>
-          <boxGeometry args={[1.6, H * 1.2, 1.6, 2, 18, 2]} />
-          <meshStandardMaterial color={m.rocket === 'saturnv' ? '#b4402e' : '#7c7f86'} wireframe />
+        <LaunchTower height={H * 1.08} color={m.rocket === 'saturnv' ? '#b5432f' : '#8a8d93'} side={-1} />
+        {/* flame trench + lightning masts + water tower */}
+        <mesh position={[0, 0.41, 3.2]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[2.4, 4]} />
+          <meshStandardMaterial color="#2a2a28" roughness={1} />
         </mesh>
+        {[[-7, -6], [7, -6], [7, 6], [-7, 6]].map(([x, z], i) => (
+          <mesh key={i} position={[x, H * 0.75, z]}>
+            <cylinderGeometry args={[0.05, 0.12, H * 1.5, 8]} />
+            <meshStandardMaterial color="#9a9ca1" />
+          </mesh>
+        ))}
+        <group position={[16, 0, -14]}>
+          <mesh position={[0, 4, 0]}>
+            <cylinderGeometry args={[0.15, 0.4, 8, 8]} />
+            <meshStandardMaterial color="#c9c9c4" />
+          </mesh>
+          <mesh position={[0, 8.6, 0]}>
+            <sphereGeometry args={[1.4, 24, 16]} />
+            <meshStandardMaterial color="#e8e8e3" />
+          </mesh>
+        </group>
         {night &&
           [0, 1, 2, 3].map((i) => (
             <pointLight key={i} position={[Math.cos(i * 1.6) * 8, 6, Math.sin(i * 1.6) * 8]} intensity={18} distance={30} color="#fff2cc" />
           ))}
       </group>
-      <mesh ref={earth}>
-        <sphereGeometry args={[600, 64, 48]} />
-        <meshStandardMaterial map={earthTex} transparent roughness={1} />
-      </mesh>
+      <group ref={earth} visible={false}>
+        <Earth r={600} sunDir={new THREE.Vector3(0.6, 0.5, 0.6)} spin={0} tilt={0} />
+      </group>
       <group ref={rocket} key={a.id + beat.title}>
         <Suspense fallback={null}>
           {m.rocket === 'saturnv' ? (
             <SaturnV stage1={stage1} />
           ) : (
-            <ProcRocket kind={m.rocket} boosters={m.rocketName.includes('541') ? 4 : undefined} stage1={stage1} />
+            <ProcRocket kind={m.rocket} variant={m.rocketName} stage1={stage1} />
           )}
         </Suspense>
         <Flame get={() => flame.current} length={m.rocket === 'saturnv' ? 6 : 4.5} radius={m.rocket === 'saturnv' ? 0.75 : 0.45} />
@@ -417,46 +336,13 @@ function CraftModel({ a, craft, lmOffset }: { a: Artifact; craft: Craft; lmOffse
 
 /* ═════════════════════ BODIES ═════════════════════ */
 function useBodyTex(body: Body) {
-  const moon = useTexture('/textures/moonmap.jpg')
-  const mars = useTexture('/textures/mars.jpg')
-  const earth = useTexture('/textures/earth.jpg')
-  for (const t of [moon, mars, earth]) t.colorSpace = THREE.SRGBColorSpace
-  return body === 'mars' ? mars : body === 'jupiter' || body === 'sun' ? null : body === 'moon' || body === 'vesta' || body === 'ceres' || body === 'eros' ? moon : earth
-}
-
-function jupiterTexture() {
-  const c = document.createElement('canvas')
-  c.width = 1024
-  c.height = 512
-  const g = c.getContext('2d')!
-  const bands = ['#d8c3a0', '#b9875a', '#efe2c8', '#a8704a', '#e6d3b0', '#c8955f', '#f1e6d1', '#9f6a45', '#ddc7a4', '#b27d52', '#ead9bd']
-  for (let y = 0; y < 512; y++) {
-    const k = y / 512
-    const i = Math.floor(k * bands.length * 1.7 + Math.sin(k * 40) * 0.6) % bands.length
-    g.fillStyle = bands[Math.abs(i)]
-    g.fillRect(0, y, 1024, 1)
-  }
-  for (let i = 0; i < 2500; i++) {
-    const y = Math.random() * 512, x = Math.random() * 1024
-    g.fillStyle = `rgba(255,255,255,${Math.random() * 0.06})`
-    g.fillRect(x, y, 30 + Math.random() * 80, 1.5)
-  }
-  g.fillStyle = '#b8513a'
-  g.beginPath()
-  g.ellipse(640, 330, 46, 24, 0, 0, Math.PI * 2)
-  g.fill()
-  g.fillStyle = 'rgba(240,200,170,0.6)'
-  g.beginPath()
-  g.ellipse(640, 330, 30, 14, 0, 0, Math.PI * 2)
-  g.fill()
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
+  const [moon, mars, jup] = useTexture([TEX.moon, TEX.mars, TEX.jupiter])
+  for (const t of [moon, mars, jup]) t.colorSpace = THREE.SRGBColorSpace
+  return body === 'mars' ? mars : body === 'jupiter' ? jup : body === 'sun' ? null : moon
 }
 
 function BodyMesh({ body, r }: { body: Body; r: number }) {
   const tex = useBodyTex(body)
-  const jt = useMemo(() => (body === 'jupiter' ? jupiterTexture() : null), [body])
   const geo = useMemo(() => {
     if (body !== 'eros' && body !== 'vesta') return new THREE.SphereGeometry(r, 96, 64)
     const g = new THREE.IcosahedronGeometry(r, 20)
@@ -480,7 +366,7 @@ function BodyMesh({ body, r }: { body: Body; r: number }) {
   return (
     <group>
       <mesh geometry={geo}>
-        <meshStandardMaterial map={jt ?? tex} color={color} roughness={1} flatShading={body === 'eros'} />
+        <meshStandardMaterial map={tex} color={color} roughness={1} flatShading={body === 'eros'} />
       </mesh>
       {body === 'ceres' &&
         [
@@ -507,8 +393,6 @@ export function CruiseScene({ a, beat }: { a: Artifact; beat: Beat }) {
   const m = a.mission
   const craft = useRef<THREE.Group>(null)
   const ion = useRef<ParticlesHandle>(null)
-  const earthTex = useTexture('/textures/earth.jpg')
-  earthTex.colorSpace = THREE.SRGBColorSpace
   const dest: Body = m.dest === 'sun' ? 'sun' : m.dest === 'ceres' ? 'vesta' : m.dest
   const E = useMemo(() => new THREE.Vector3(-34, 0, 0), [])
   const D = useMemo(() => new THREE.Vector3(34, 0, -6), [])
@@ -555,20 +439,14 @@ export function CruiseScene({ a, beat }: { a: Artifact; beat: Beat }) {
       <ambientLight intensity={0.2} />
       <directionalLight position={[-20, 10, 30]} intensity={2.4} />
       <group position={E}>
-        <mesh rotation={[0.4, 1.5, 0]}>
-          <sphereGeometry args={[4, 64, 48]} />
-          <meshStandardMaterial map={earthTex} roughness={1} />
-        </mesh>
+        <Earth r={4} sunDir={new THREE.Vector3(-0.6, 0.3, 0.75)} spin={0.03} />
         <Html position={[0, -5.2, 0]} center className="space-tag">
           Earth
         </Html>
       </group>
       <group position={D}>
         {dest === 'sun' ? (
-          <mesh>
-            <sphereGeometry args={[DEST_R.sun, 32, 24]} />
-            <meshBasicMaterial color="#ffe08a" toneMapped={false} />
-          </mesh>
+          <Sun r={DEST_R.sun} />
         ) : (
           <Suspense fallback={null}>
             <BodyMesh body={dest} r={DEST_R[dest]} />
@@ -941,14 +819,7 @@ export function TransitScene({ beat }: { beat: Beat }) {
       <SpaceSky />
       <ambientLight intensity={0.08} />
       <pointLight position={[0, 0, 0]} intensity={300} distance={80} color="#fff1d0" />
-      <mesh>
-        <sphereGeometry args={[STAR, 64, 48]} />
-        <meshBasicMaterial color="#ffe3a3" toneMapped={false} />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[STAR * 1.25, 48, 32]} />
-        <meshBasicMaterial color="#ffb347" transparent opacity={0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
+      <Sun r={STAR} glow={0.8} />
       {planets.map((pl, i) => (
         <group key={i}>
           <mesh ref={(m) => { refs.current[i] = m }}>

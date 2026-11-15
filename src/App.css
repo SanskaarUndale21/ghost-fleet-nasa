@@ -267,3 +267,49 @@
   .story.collapsed .tagline, .story.collapsed .phases, .story.collapsed .drawer, .story.collapsed .src, .story.collapsed .chapter .text { display: none; }
   .story.collapsed ~ .highlight { bottom: 200px; }
 }
+
+/* ───── home ───── */
+.hero { position: absolute; left: 48px; top: 96px; max-width: 520px; pointer-events: none; }
+.hero h1 { font-weight: 400; font-size: clamp(38px, 5.2vw, 76px); line-height: .98; margin: 10px 0 16px; letter-spacing: -0.01em; }
+.hero-sub { color: #c7cdd9; font-size: 17px; line-height: 1.55; max-width: 460px; text-shadow: 0 2px 12px #000; }
+.dest-card {
+  display: grid; gap: 2px; text-align: left; white-space: nowrap; padding: 10px 14px 10px 14px;
+  background: linear-gradient(90deg, rgba(8,12,22,.82), rgba(8,12,22,.55)); border: 1px solid var(--line); border-left: 2px solid var(--mint);
+  border-radius: 4px 12px 12px 4px; backdrop-filter: blur(8px); transition: transform .2s, border-color .2s, background .2s;
+}
+.dest-card:hover, .dest-card.on { transform: translateX(4px); border-color: rgba(125,255,208,.6); background: rgba(10,20,26,.9); }
+.dest-name { font-size: 22px; line-height: 1.1; }
+.dest-sub { font-family: var(--mono); font-size: 10.5px; color: var(--mute); letter-spacing: .04em; }
+.dest-count { font-family: var(--mono); font-size: 10.5px; color: var(--gold); margin-top: 4px; }
+.roster {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 48px 18px;
+  background: linear-gradient(to top, rgba(3,5,10,.95) 30%, rgba(3,5,10,0));
+}
+.roster-head { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin-bottom: 10px; }
+.roster-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; scrollbar-color: #2a3242 transparent; }
+.roster-card {
+  flex: none; width: 168px; display: grid; gap: 4px; text-align: left; padding: 10px 12px;
+  background: rgba(12,18,30,.75); border: 1px solid var(--line); border-radius: 12px; transition: border-color .2s, transform .2s, background .2s;
+}
+.roster-card:hover, .roster-card:focus-visible { border-color: var(--c); transform: translateY(-3px); background: rgba(16,24,38,.95); }
+.rc-year { font-family: var(--mono); font-size: 11px; color: var(--c); }
+.rc-name { font-size: 15px; line-height: 1.2; min-height: 2.4em; }
+.rc-meta { font-family: var(--mono); font-size: 10px; color: var(--mute); display: flex; align-items: center; gap: 6px; }
+.rc-meta i { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--c); }
+.roster-card.seen .rc-meta i { background: var(--c); }
+.roster-card.w-moon { --c: #cfd6e2; } .roster-card.w-mars { --c: #f0a072; } .roster-card.w-deep { --c: var(--mint); }
+@media (max-width: 760px) {
+  .hero { left: 16px; right: 16px; top: 64px; }
+  .hero h1 { font-size: 34px; }
+  .hero-sub { font-size: 14px; }
+  .roster { padding: 10px 16px 12px; }
+  .roster-card { width: 140px; }
+  .dest-name { font-size: 17px; }
+}
+@media (max-width: 760px) {
+  .hero-sub { display: none; }
+  .hero h1 { font-size: 30px; }
+  .dest-sub { display: none; }
+  .dest-card { padding: 7px 10px; }
+  .dest-count { font-size: 9.5px; }
+}

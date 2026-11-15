@@ -8,6 +8,7 @@ import type { Act, Beat } from '../data/missions'
 import { Actor } from './Actor'
 import { Weather } from './Effects'
 import { motion } from './motionState'
+import { Atmosphere, Earth, Planet, Sun, TEX } from './Planets'
 import { fbm, latLonToVec, terrainHeight } from './util'
 
 type Ctl = CC | null
@@ -15,116 +16,185 @@ const useCtl = () => useThree((s) => s.controls) as unknown as Ctl
 
 /* ───────────── shared sky ───────────── */
 export function SpaceSky({ dim = 1 }: { dim?: number }) {
-  const tex = useTexture('/textures/stars.jpg')
+  const tex = useTexture(TEX.stars)
   tex.colorSpace = THREE.SRGBColorSpace
   return (
     <>
-      <mesh scale={-1} renderOrder={-1}>
-        <sphereGeometry args={[400, 48, 32]} />
-        <meshBasicMaterial map={tex} side={THREE.BackSide} color={new THREE.Color(0.55 * dim, 0.55 * dim, 0.6 * dim)} depthWrite={false} toneMapped={false} />
+      <mesh renderOrder={-1}>
+        <sphereGeometry args={[400, 64, 32]} />
+        <meshBasicMaterial map={tex} side={THREE.BackSide} color={new THREE.Color(0.75 * dim, 0.75 * dim, 0.8 * dim)} depthWrite={false} toneMapped={false} />
       </mesh>
-      <Stars radius={150} depth={60} count={2500} factor={4} fade speed={0.4} />
+      <Stars radius={150} depth={60} count={1800} factor={3.2} fade speed={0.3} />
     </>
   )
 }
 
-/* ───────────── HUB ───────────── */
+/* ───────────── HUB: Earth and the paths we sent machines along ───────────── */
+type HubDest = { world: World; pos: THREE.Vector3; label: string; sub: string }
+
 export function Hub({ onWorld, visited }: { onWorld: (w: World) => void; visited: Set<string> }) {
   const ctl = useCtl()
-  const portrait = useThree((s) => s.size.width < s.size.height)
+  const portrait = useThree((s) => s.size.width < s.size.height * 0.9)
+  const pointer = useThree((s) => s.pointer)
+  const [hover, setHover] = useState<World | null>(null)
+  const L = useMemo(
+    () =>
+      portrait
+        ? { cam: new THREE.Vector3(0, 0, 24), earth: new THREE.Vector3(0, -11.5, -1), er: 7, moon: new THREE.Vector3(-3.2, -2.6, -3), mars: new THREE.Vector3(-1.6, 0.4, -10), deep: new THREE.Vector3(-3.5, 4.8, -24) }
+        : { cam: new THREE.Vector3(0, 0, 16), earth: new THREE.Vector3(-9.2, -5.6, -1), er: 6.2, moon: new THREE.Vector3(-0.6, 0.9, -4), mars: new THREE.Vector3(6.8, 2.4, -10), deep: new THREE.Vector3(17, 10.5, -22) },
+    [portrait],
+  )
   useEffect(() => {
-    if (portrait) ctl?.setLookAt(0, 0, 17, 0, 0.2, 0, true)
-    else ctl?.setLookAt(0, 1.2, 11, 0, 0, 0, true)
-  }, [ctl, portrait])
-  const pos = (i: number): [number, number, number] => (portrait ? [-1.2, 4.0 - i * 3.7, 0] : [-4.2 + i * 4.2, 0, 0])
+    ctl?.setLookAt(L.cam.x, L.cam.y, L.cam.z, 0, 0, 0, true)
+    if (ctl) ctl.enabled = false
+    return () => {
+      if (ctl) ctl.enabled = true
+    }
+  }, [ctl, L])
+  useFrame(() => {
+    if (!ctl) return
+    ctl.setLookAt(L.cam.x + pointer.x * 0.8, L.cam.y + pointer.y * 0.5, L.cam.z, pointer.x * 0.3, pointer.y * 0.2, 0, true)
+  })
+  const sun = useMemo(() => new THREE.Vector3(0.75, 0.5, -0.7).normalize(), [])
+  const dests: HubDest[] = [
+    { world: 'moon', pos: L.moon, label: 'The Moon', sub: '384,000 km · 3 days away' },
+    { world: 'mars', pos: L.mars, label: 'Mars', sub: '~7 months away' },
+    { world: 'deep', pos: L.deep, label: 'Deep Space', sub: 'asteroids, Jupiter and beyond' },
+  ]
+  const launch = (to: THREE.Vector3) => L.earth.clone().add(to.clone().sub(L.earth).normalize().multiplyScalar(L.er * 1.02))
   return (
     <>
       <SpaceSky />
-      <ambientLight intensity={0.12} />
-      <directionalLight position={[-6, 3, 6]} intensity={2.6} />
-      <HubItem position={pos(0)} portrait={portrait} world="moon" onWorld={onWorld} visited={visited}>
-        <Planet tex="/textures/moonmap.jpg" r={1.3} />
-      </HubItem>
-      <HubItem position={pos(1)} portrait={portrait} world="mars" onWorld={onWorld} visited={visited}>
-        <Planet tex="/textures/mars.jpg" r={1.5} halo="#e0905c" />
-      </HubItem>
-      <HubItem position={pos(2)} portrait={portrait} world="deep" onWorld={onWorld} visited={visited}>
-        <MiniSystem />
-      </HubItem>
+      <ambientLight intensity={0.05} />
+      <directionalLight position={sun.clone().multiplyScalar(30)} intensity={3} />
+      <group position={L.earth}>
+        <Earth r={L.er} sunDir={sun} spin={0.012} />
+      </group>
+      {dests.map((d) => (
+        <HubPath key={d.world} from={launch(d.pos)} to={d.pos} on={hover === d.world} deep={d.world === 'deep'} />
+      ))}
+      <HubTarget d={dests[0]} onWorld={onWorld} hover={hover} setHover={setHover} visited={visited} portrait={portrait}>
+        <Planet tex={TEX.moon} r={0.9} spin={0.02} />
+      </HubTarget>
+      <HubTarget d={dests[1]} onWorld={onWorld} hover={hover} setHover={setHover} visited={visited} portrait={portrait}>
+        <Planet tex={TEX.mars} r={1.8} atmo="#ff9a66" spin={0.02} />
+      </HubTarget>
+      <HubTarget d={dests[2]} onWorld={onWorld} hover={hover} setHover={setHover} visited={visited} portrait={portrait}>
+        <DeepBeacon />
+      </HubTarget>
     </>
   )
 }
 
-function HubItem({
-  position,
-  portrait,
-  world,
+function HubPath({ from, to, on, deep }: { from: THREE.Vector3; to: THREE.Vector3; on: boolean; deep: boolean }) {
+  const pts = useMemo(() => {
+    const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3(0, from.distanceTo(to) * (deep ? 0.08 : 0.18), 2))
+    return new THREE.QuadraticBezierCurve3(from, mid, to).getPoints(80)
+  }, [from, to, deep])
+  const ref = useRef<{ material: { dashOffset: number } } | null>(null)
+  useFrame((_, dt) => {
+    if (ref.current) ref.current.material.dashOffset -= dt * (on ? 1.2 : 0.4)
+  })
+  return (
+    <Line
+      ref={ref as never}
+      points={pts}
+      color={on ? '#7dffd0' : '#9fd8ff'}
+      lineWidth={on ? 2.2 : 1.2}
+      dashed
+      dashSize={0.35}
+      gapSize={0.25}
+      transparent
+      opacity={on ? 0.95 : 0.45}
+    />
+  )
+}
+
+function DeepBeacon() {
+  const g = useRef<THREE.Group>(null)
+  useFrame(({ clock }) => {
+    if (g.current) {
+      g.current.rotation.y = clock.elapsedTime * 0.6
+      const s = 1 + Math.sin(clock.elapsedTime * 2) * 0.08
+      g.current.scale.setScalar(s)
+    }
+  })
+  return (
+    <group ref={g}>
+      <mesh>
+        <octahedronGeometry args={[0.55]} />
+        <meshBasicMaterial color="#7dffd0" wireframe toneMapped={false} />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.18, 16, 12]} />
+        <meshBasicMaterial color="#e9fff7" toneMapped={false} />
+      </mesh>
+      <Atmosphere r={0.6} color="#7dffd0" scale={1.6} power={1.4} strength={0.9} />
+    </group>
+  )
+}
+
+function HubTarget({
+  d,
   onWorld,
+  hover,
+  setHover,
   visited,
+  portrait,
   children,
 }: {
-  position: [number, number, number]
-  portrait: boolean
-  world: World
+  d: HubDest
+  portrait?: boolean
   onWorld: (w: World) => void
+  hover: World | null
+  setHover: (w: World | null) => void
   visited: Set<string>
   children: React.ReactNode
 }) {
   const ref = useRef<THREE.Group>(null)
-  const [hover, setHover] = useState(false)
-  useFrame((_, dt) => {
+  const on = hover === d.world
+  useFrame(() => {
     if (!ref.current) return
-    ref.current.rotation.y += dt * 0.12
-    const t = hover ? 1.12 : 1
-    ref.current.scale.lerp(new THREE.Vector3(t, t, t), 0.1)
+    const t = on ? 1.12 : 1
+    ref.current.scale.lerp(new THREE.Vector3(t, t, t), 0.12)
   })
-  const list = ARTIFACTS.filter((a) => a.world === world)
+  const list = ARTIFACTS.filter((a) => a.world === d.world)
   const found = list.filter((a) => visited.has(a.id)).length
-  const label = world === 'moon' ? 'The Moon' : world === 'mars' ? 'Mars' : 'Deep Space'
   return (
-    <group position={position}>
+    <group position={d.pos}>
       <group
         ref={ref}
         onPointerOver={(e) => {
           e.stopPropagation()
-          setHover(true)
+          setHover(d.world)
           document.body.style.cursor = 'pointer'
         }}
         onPointerOut={() => {
-          setHover(false)
+          setHover(null)
           document.body.style.cursor = ''
         }}
         onClick={(e) => {
           e.stopPropagation()
           document.body.style.cursor = ''
-          onWorld(world)
+          onWorld(d.world)
         }}
       >
         {children}
       </group>
-      <Html position={portrait ? [2.9, 0, 0] : [0, -2.15, 0]} center zIndexRange={[10, 0]}>
-        <button className={'hub-label' + (hover ? ' on' : '')} onClick={() => onWorld(world)}>
-          <span className="hub-name">{label}</span>
-          <span className="hub-count">
-            {found}/{list.length} ghosts found
+      <Html position={[d.world === 'mars' ? 2.2 : d.world === 'moon' ? 1.15 : portrait ? 0.9 : -0.9, 0, 0]} zIndexRange={[10, 0]} style={{ transform: d.world === 'deep' && !portrait ? 'translate(-100%, -50%)' : 'translateY(-50%)' }}>
+        <button
+          className={'dest-card' + (on ? ' on' : '')}
+          onClick={() => onWorld(d.world)}
+          onMouseEnter={() => setHover(d.world)}
+          onMouseLeave={() => setHover(null)}
+        >
+          <span className="dest-name">{d.label}</span>
+          <span className="dest-sub">{d.sub}</span>
+          <span className="dest-count">
+            {list.length} machines · {found} stories heard
           </span>
         </button>
       </Html>
-    </group>
-  )
-}
-
-function Planet({ tex, r, halo }: { tex: string; r: number; halo?: string }) {
-  const map = useTexture(tex)
-  map.colorSpace = THREE.SRGBColorSpace
-  map.anisotropy = 8
-  return (
-    <group>
-      <mesh>
-        <sphereGeometry args={[r, 96, 64]} />
-        <meshStandardMaterial map={map} roughness={1} metalness={0} />
-      </mesh>
-      {halo && <Halo r={r} color={halo} />}
     </group>
   )
 }
@@ -147,38 +217,6 @@ function Halo({ r, color }: { r: number; color: string }) {
     <mesh material={mat}>
       <sphereGeometry args={[r * 1.05, 64, 48]} />
     </mesh>
-  )
-}
-
-function MiniSystem() {
-  const g = useRef<THREE.Group>(null)
-  useFrame((_, dt) => {
-    if (g.current) g.current.rotation.y += dt * 0.4
-  })
-  return (
-    <group rotation={[0.45, 0, 0.15]}>
-      <mesh>
-        <sphereGeometry args={[0.38, 32, 24]} />
-        <meshBasicMaterial color="#ffd27a" toneMapped={false} />
-      </mesh>
-      <pointLight intensity={4} distance={4} color="#ffcc88" />
-      {[0.8, 1.15, 1.55].map((r) => (
-        <mesh key={r} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[r, 0.006, 6, 96]} />
-          <meshBasicMaterial color="#7d8aa6" transparent opacity={0.6} />
-        </mesh>
-      ))}
-      <group ref={g}>
-        <mesh position={[1.15, 0, 0]}>
-          <sphereGeometry args={[0.09, 16, 12]} />
-          <meshStandardMaterial color="#6fa3ff" />
-        </mesh>
-        <mesh position={[-1.55, 0, 0.2]}>
-          <octahedronGeometry args={[0.07]} />
-          <meshBasicMaterial color="#7dffd0" toneMapped={false} />
-        </mesh>
-      </group>
-    </group>
   )
 }
 
@@ -346,7 +384,7 @@ export function DeepSpace({
 }) {
   const ctl = useCtl()
   const list = ARTIFACTS.filter((a) => a.world === 'deep')
-  const earthTex = useTexture('/textures/earth.jpg')
+  const earthTex = useTexture(TEX.earthDay)
   const marsTex = useTexture('/textures/mars.jpg')
   earthTex.colorSpace = marsTex.colorSpace = THREE.SRGBColorSpace
 
@@ -402,11 +440,7 @@ export function DeepSpace({
       <ambientLight intensity={0.25} />
       <pointLight position={[0, 0, 0]} intensity={60} distance={60} decay={1.4} color="#fff0d6" />
       {/* Sun */}
-      <mesh>
-        <sphereGeometry args={[0.9, 48, 32]} />
-        <meshBasicMaterial color="#ffd27a" toneMapped={false} />
-      </mesh>
-      <Halo r={1.2} color="#ffb347" />
+      <Sun r={1.0} />
       <Html position={[0, -1.4, 0]} center className="space-tag">
         Sun
       </Html>
@@ -570,7 +604,7 @@ export function ArtifactStage({ a, beat, replay }: { a: Artifact; beat: Beat; re
   useEffect(() => {
     if (!ctl) return
     const size = a.model.type === 'glb' ? a.model.size ?? 3 : 3
-    ctl.setFocalOffset(width > 760 ? size * 0.42 : 0, width > 760 ? 0 : size * 0.7, 0, true)
+    ctl.setFocalOffset(0, width > 760 ? size * 0.18 : size * 0.45, 0, true)
     return () => {
       ctl.setFocalOffset(0, 0, 0, true)
     }
@@ -706,15 +740,9 @@ function MarsSky() {
 }
 
 function EarthInSky() {
-  const tex = useTexture('/textures/earth.jpg')
-  tex.colorSpace = THREE.SRGBColorSpace
   return (
     <group position={[-60, 38, -110]}>
-      <mesh rotation={[0.3, 2, 0]}>
-        <sphereGeometry args={[6, 64, 48]} />
-        <meshStandardMaterial map={tex} roughness={1} />
-      </mesh>
-      <Halo r={6} color="#7fb2ff" />
+      <Earth r={6} sunDir={new THREE.Vector3(1, 0.3, 0.6)} spin={0.01} />
     </group>
   )
 }
@@ -761,16 +789,10 @@ function CeresBackdrop() {
 }
 
 function DistantEarth() {
-  const tex = useTexture('/textures/earth.jpg')
-  tex.colorSpace = THREE.SRGBColorSpace
   return (
     <>
       <group position={[-40, 6, -90]}>
-        <mesh>
-          <sphereGeometry args={[2.2, 48, 32]} />
-          <meshStandardMaterial map={tex} roughness={1} />
-        </mesh>
-        <Halo r={2.2} color="#7fb2ff" />
+        <Earth r={2.2} sunDir={new THREE.Vector3(1, 0.2, 0.3)} spin={0.01} />
       </group>
       <DistantSun />
     </>
@@ -780,11 +802,7 @@ function DistantEarth() {
 function DistantSun() {
   return (
     <group position={[120, 30, -60]}>
-      <mesh>
-        <sphereGeometry args={[2, 24, 16]} />
-        <meshBasicMaterial color="#fff2c8" toneMapped={false} />
-      </mesh>
-      <Halo r={4} color="#ffcf80" />
+      <Sun r={2.4} glow={1.2} />
     </group>
   )
 }

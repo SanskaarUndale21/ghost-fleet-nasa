@@ -93,4 +93,6 @@ export const RESOURCES: ResourceLink[] = [
 
 export const ASSET_CREDITS = [
   { title: 'NASA 3D Resources (models + planet textures)', url: 'https://github.com/nasa/NASA-3D-Resources' },
+  { title: 'Solar System Scope textures: Earth, Mars, Jupiter, Milky Way (CC BY 4.0)', url: 'https://www.solarsystemscope.com/textures/' },
+  { title: 'NASA SVS CGI Moon Kit (Moon map)', url: 'https://svs.gsfc.nasa.gov/4720' },
 ]
