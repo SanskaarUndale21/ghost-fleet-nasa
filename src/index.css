@@ -1,0 +1,20 @@
+:root {
+  --bg: #03050a;
+  --panel: rgba(8, 12, 22, 0.78);
+  --line: rgba(160, 190, 230, 0.16);
+  --ink: #e8ecf3;
+  --mute: #8d97aa;
+  --mint: #7dffd0;
+  --gold: #ffd27a;
+  --rust: #e39a6a;
+  --bad: #ff8a7a;
+  --serif: 'Fraunces', Georgia, serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+body { font-family: var(--serif); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: var(--mint); }
+:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
