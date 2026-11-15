@@ -6,8 +6,8 @@ import { ARTIFACTS, WORLD_META, byId, type Artifact, type World } from './data/a
 import { ASSET_CREDITS, CHALLENGE_URL, RESOURCES } from './data/resources'
 import { preloadModels } from './scene/Models'
 import { ArtifactStage, DeepSpace, Globe, Hub } from './scene/Worlds'
-import { CruiseScene, EntryScene, FlybyScene, InteriorScene, LaunchScene, OrbitScene, TransitScene } from './scene/Cinematic'
-import { playback, resetMotion } from './scene/motionState'
+import { CruiseScene, DsnScene, EntryScene, FlybyScene, InteriorScene, LaunchScene, LegacyScene, OrbitScene, TransitScene } from './scene/Cinematic'
+import { SimClock, playback, resetMotion } from './scene/motionState'
 import type { Beat } from './data/missions'
 import { StoryPlayer } from './StoryPlayer'
 import './App.css'
@@ -34,7 +34,6 @@ export default function App() {
   const [intro, setIntro] = useState(true)
   const [replay, setReplay] = useState(0)
   const [playing, setPlaying] = useState(true)
-  playback.paused = !playing
 
   const markVisited = useCallback((id: string) => {
     setVisited((prev) => {
@@ -83,6 +82,8 @@ export default function App() {
   }) // eslint-disable-line
 
   const current = view.mode === 'artifact' ? byId(view.id) : null
+  // pausing freezes the 3D world only inside a story; the home and maps keep moving
+  playback.paused = view.mode === 'artifact' && !playing
 
   return (
     <div className="app">
@@ -94,6 +95,7 @@ export default function App() {
         onPointerMissed={() => view.mode === 'world' && setSelected(null)}
       >
         <color attach="background" args={['#03050a']} />
+        <SimClock />
         <CameraControls
           makeDefault
           minDistance={view.mode === 'artifact' ? 2.2 : view.mode === 'world' && view.world !== 'deep' ? 3.1 : 3}
@@ -247,6 +249,12 @@ function HubOverlay({ onOpen, visited }: { onOpen: (id: string) => void; visited
           choose a machine below and watch its whole mission, from launch to where it rests today.
         </p>
       </section>
+      <div className="nav-hint">
+        <span>Drag to orbit · right-drag to pan · scroll to zoom</span>
+        <button className="t-pill" onClick={() => window.dispatchEvent(new Event('ghostfleet:resetview'))}>
+          ⟲ Reset view
+        </button>
+      </div>
       <section className="roster" aria-label="All machines, by launch year">
         <div className="roster-head">
           <span>The ghost fleet · 1966 to 2024</span>
@@ -345,6 +353,10 @@ function MissionScene({ a, beat, replay }: { a: Artifact; beat: Beat; replay: nu
       return <InteriorScene beat={beat} />
     case 'transit':
       return <TransitScene beat={beat} />
+    case 'legacy':
+      return <LegacyScene a={a} beat={beat} />
+    case 'dsn':
+      return <DsnScene a={a} beat={beat} />
     default:
       return <ArtifactStage a={a} beat={beat} replay={replay} />
   }

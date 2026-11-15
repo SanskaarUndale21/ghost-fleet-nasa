@@ -22,7 +22,7 @@ function useCaps() {
 }
 
 const MIN_DUR: Partial<Record<string, number>> = {
-  launch: 21, cruise: 16, entry: 14, orbit: 12, flyby: 16, interior: 12, transit: 14,
+  launch: 21, cruise: 16, entry: 14, orbit: 12, flyby: 16, interior: 12, transit: 14, legacy: 12, dsn: 14,
   land: 10, bounce: 11, airbag: 10, skycrane: 14, dropoff: 12, fly: 15, liftoff: 12, deploy: 7, crash: 11, driveIn: 9,
 }
 export function minDuration(b: Beat) {

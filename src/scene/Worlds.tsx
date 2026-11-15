@@ -1,13 +1,14 @@
 import { Html, Line, Stars, useTexture } from '@react-three/drei'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { CameraControls as CC } from '@react-three/drei'
 import { ARTIFACTS, type Artifact, type World } from '../data/artifacts'
 import type { Act, Beat } from '../data/missions'
 import { Actor } from './Actor'
+import { ModelFit, NASA_MODELS } from './Models'
 import { Weather } from './Effects'
-import { motion } from './motionState'
+import { motion, useSimFrame } from './motionState'
 import { Atmosphere, Earth, Planet, Sun, TEX } from './Planets'
 import { fbm, latLonToVec, terrainHeight } from './util'
 
@@ -35,7 +36,6 @@ type HubDest = { world: World; pos: THREE.Vector3; label: string; sub: string }
 export function Hub({ onWorld, visited }: { onWorld: (w: World) => void; visited: Set<string> }) {
   const ctl = useCtl()
   const portrait = useThree((s) => s.size.width < s.size.height * 0.9)
-  const pointer = useThree((s) => s.pointer)
   const [hover, setHover] = useState<World | null>(null)
   const L = useMemo(
     () =>
@@ -45,16 +45,13 @@ export function Hub({ onWorld, visited }: { onWorld: (w: World) => void; visited
     [portrait],
   )
   useEffect(() => {
-    ctl?.setLookAt(L.cam.x, L.cam.y, L.cam.z, 0, 0, 0, true)
-    if (ctl) ctl.enabled = false
-    return () => {
-      if (ctl) ctl.enabled = true
-    }
-  }, [ctl, L])
-  useFrame(() => {
     if (!ctl) return
-    ctl.setLookAt(L.cam.x + pointer.x * 0.8, L.cam.y + pointer.y * 0.5, L.cam.z, pointer.x * 0.3, pointer.y * 0.2, 0, true)
-  })
+    ctl.enabled = true
+    ctl.setLookAt(L.cam.x, L.cam.y, L.cam.z, 0, 0, 0, true)
+    const reset = () => ctl.setLookAt(L.cam.x, L.cam.y, L.cam.z, 0, 0, 0, true)
+    window.addEventListener('ghostfleet:resetview', reset)
+    return () => window.removeEventListener('ghostfleet:resetview', reset)
+  }, [ctl, L])
   const sun = useMemo(() => new THREE.Vector3(0.75, 0.5, -0.7).normalize(), [])
   const dests: HubDest[] = [
     { world: 'moon', pos: L.moon, label: 'The Moon', sub: '384,000 km · 3 days away' },
@@ -69,6 +66,20 @@ export function Hub({ onWorld, visited }: { onWorld: (w: World) => void; visited
       <directionalLight position={sun.clone().multiplyScalar(30)} intensity={3} />
       <group position={L.earth}>
         <Earth r={L.er} sunDir={sun} spin={0.012} />
+        <Suspense fallback={null}>
+          <Orbiter url={NASA_MODELS.iss} r={L.er * 1.12} size={1.7} speed={0.12} tilt={0.9} phase={1.2} label="ISS" />
+          <Orbiter url={NASA_MODELS.hubble} r={L.er * 1.2} size={1.0} speed={0.09} tilt={0.3} phase={3.3} label="Hubble" />
+        </Suspense>
+      </group>
+      <group position={L.moon}>
+        <Suspense fallback={null}>
+          <Orbiter url={NASA_MODELS.lro} r={1.4} size={0.55} speed={0.35} tilt={1.2} phase={0.4} label="LRO" />
+        </Suspense>
+      </group>
+      <group position={L.mars}>
+        <Suspense fallback={null}>
+          <Orbiter url={NASA_MODELS.mro} r={2.6} size={0.9} speed={0.25} tilt={0.6} phase={2} label="MRO" />
+        </Suspense>
       </group>
       {dests.map((d) => (
         <HubPath key={d.world} from={launch(d.pos)} to={d.pos} on={hover === d.world} deep={d.world === 'deep'} />
@@ -92,7 +103,7 @@ function HubPath({ from, to, on, deep }: { from: THREE.Vector3; to: THREE.Vector
     return new THREE.QuadraticBezierCurve3(from, mid, to).getPoints(80)
   }, [from, to, deep])
   const ref = useRef<{ material: { dashOffset: number } } | null>(null)
-  useFrame((_, dt) => {
+  useSimFrame((_, dt) => {
     if (ref.current) ref.current.material.dashOffset -= dt * (on ? 1.2 : 0.4)
   })
   return (
@@ -112,24 +123,18 @@ function HubPath({ from, to, on, deep }: { from: THREE.Vector3; to: THREE.Vector
 
 function DeepBeacon() {
   const g = useRef<THREE.Group>(null)
-  useFrame(({ clock }) => {
+  useSimFrame(({ clock }) => {
     if (g.current) {
-      g.current.rotation.y = clock.elapsedTime * 0.6
-      const s = 1 + Math.sin(clock.elapsedTime * 2) * 0.08
-      g.current.scale.setScalar(s)
+      g.current.rotation.y = clock.elapsedTime * 0.25
+      g.current.rotation.z = Math.sin(clock.elapsedTime * 0.4) * 0.15
     }
   })
   return (
     <group ref={g}>
-      <mesh>
-        <octahedronGeometry args={[0.55]} />
-        <meshBasicMaterial color="#7dffd0" wireframe toneMapped={false} />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[0.18, 16, 12]} />
-        <meshBasicMaterial color="#e9fff7" toneMapped={false} />
-      </mesh>
-      <Atmosphere r={0.6} color="#7dffd0" scale={1.6} power={1.4} strength={0.9} />
+      <Suspense fallback={null}>
+        <ModelFit url={NASA_MODELS.voyager} size={3.4} />
+      </Suspense>
+      <Atmosphere r={1.2} color="#7dffd0" scale={1.5} power={2.2} strength={0.45} />
     </group>
   )
 }
@@ -153,7 +158,7 @@ function HubTarget({
 }) {
   const ref = useRef<THREE.Group>(null)
   const on = hover === d.world
-  useFrame(() => {
+  useSimFrame(() => {
     if (!ref.current) return
     const t = on ? 1.12 : 1
     ref.current.scale.lerp(new THREE.Vector3(t, t, t), 0.12)
@@ -257,7 +262,7 @@ export function Globe({
     ctl.setLookAt(v.x, v.y, v.z, 0, 0, 0, true)
   }, [ctl, selected, world]) // eslint-disable-line
 
-  useFrame((_, dt) => {
+  useSimFrame((_, dt) => {
     if (!ctl || selected) return
     idle.current += dt
     if (idle.current > 1.5 && !(ctl as unknown as { active: boolean }).active) ctl.azimuthAngle += dt * 0.05
@@ -310,7 +315,7 @@ function Marker({
   const [hover, setHover] = useState(false)
   const q = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), pos.clone().normalize()), [pos])
   const color = active ? '#7dffd0' : seen ? '#ffd27a' : '#9fd8ff'
-  useFrame(({ clock }) => {
+  useSimFrame(({ clock }) => {
     if (!ring.current) return
     const t = (clock.elapsedTime * 0.8 + pos.x) % 1
     ring.current.scale.setScalar(1 + t * 1.8)
@@ -318,7 +323,7 @@ function Marker({
   })
   const camera = useThree((s) => s.camera)
   const [facing, setFacing] = useState(true)
-  useFrame(() => {
+  useSimFrame(() => {
     const f = camera.position.clone().normalize().dot(pos.clone().normalize()) > 0.15
     if (f !== facing) setFacing(f)
   })
@@ -522,7 +527,7 @@ function SpaceProbe({
 }) {
   const ref = useRef<THREE.Mesh>(null)
   const [hover, setHover] = useState(false)
-  useFrame((_, dt) => {
+  useSimFrame((_, dt) => {
     if (ref.current) ref.current.rotation.y += dt * 1.2
   })
   const color = active ? '#7dffd0' : seen ? '#ffd27a' : '#9fd8ff'
@@ -610,7 +615,7 @@ export function ArtifactStage({ a, beat, replay }: { a: Artifact; beat: Beat; re
     }
   }, [ctl, a, width])
 
-  useFrame(() => {
+  useSimFrame(() => {
     const q = motion.quake
     if (shake.current) shake.current.position.set((Math.random() - 0.5) * q * 0.12, (Math.random() - 0.5) * q * 0.06, (Math.random() - 0.5) * q * 0.12)
     const k = 1 - motion.dim
@@ -649,6 +654,22 @@ export function ArtifactStage({ a, beat, replay }: { a: Artifact; beat: Beat; re
         </Suspense>
       </group>
       {a.backdrop === 'moon' && <EarthInSky />}
+      {a.backdrop === 'moon' && act === 'rest' && (
+        <Suspense fallback={null}>
+          <Flyover url={NASA_MODELS.lro} label="Lunar Reconnaissance Orbiter" sub="photographing Apollo sites from orbit since 2009" />
+        </Suspense>
+      )}
+      {act === 'compare' && (
+        <Suspense fallback={null}>
+          <group position={[a.id === 'sojourner' ? 3.6 : 4.2, terrainHeight('mars', 4, 0), -0.6]} rotation={[0, -0.6, 0]}>
+            <ModelFit url={NASA_MODELS.perseverance} size={a.id === 'sojourner' ? 5.6 : 4.6} anchor="bottom" />
+          </group>
+          <Html position={[a.id === 'sojourner' ? 3.6 : 4.2, 3.6, -0.6]} center className="model-tag">
+            <b>Perseverance (2021)</b>
+            <span>same rocker-bogie idea, about 100 times heavier than Sojourner</span>
+          </Html>
+        </Suspense>
+      )}
       {a.backdrop === 'ceres' && <CeresBackdrop />}
       {a.backdrop === 'earthTrail' && <DistantEarth />}
       {a.backdrop === 'void' && <DistantSun />}
@@ -659,7 +680,7 @@ export function ArtifactStage({ a, beat, replay }: { a: Artifact; beat: Beat; re
 
 function LoadingProbe() {
   const r = useRef<THREE.Mesh>(null)
-  useFrame((_, dt) => {
+  useSimFrame((_, dt) => {
     if (r.current) r.current.rotation.y += dt * 2
   })
   return (
@@ -672,7 +693,7 @@ function LoadingProbe() {
 
 function Floaty({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
   const g = useRef<THREE.Group>(null)
-  useFrame(({ clock }) => {
+  useSimFrame(({ clock }) => {
     if (g.current && enabled) {
       g.current.position.y = Math.sin(clock.elapsedTime * 0.6) * 0.12
       g.current.rotation.z = Math.sin(clock.elapsedTime * 0.3) * 0.05
@@ -803,6 +824,48 @@ function DistantSun() {
   return (
     <group position={[120, 30, -60]}>
       <Sun r={2.4} glow={1.2} />
+    </group>
+  )
+}
+
+/** A NASA spacecraft model circling a body (home scene) */
+function Orbiter({ url, r, size, speed, tilt, phase, label }: { url: string; r: number; size: number; speed: number; tilt: number; phase: number; label: string }) {
+  const g = useRef<THREE.Group>(null)
+  const [hover, setHover] = useState(false)
+  useSimFrame(({ clock }) => {
+    if (!g.current) return
+    const a = phase + clock.elapsedTime * speed
+    g.current.position.set(Math.cos(a) * r, Math.sin(a) * r * Math.sin(tilt), Math.sin(a) * r * Math.cos(tilt))
+    g.current.rotation.y = -a
+  })
+  return (
+    <group ref={g} onPointerOver={() => setHover(true)} onPointerOut={() => setHover(false)}>
+      <ModelFit url={url} size={size} />
+      {hover && (
+        <Html center position={[0, size * 0.9, 0]} className="space-tag">
+          {label}
+        </Html>
+      )}
+    </group>
+  )
+}
+
+/** A spacecraft gliding across the sky above a surface scene */
+function Flyover({ url, label, sub }: { url: string; label: string; sub: string }) {
+  const g = useRef<THREE.Group>(null)
+  useSimFrame(({ clock }) => {
+    if (!g.current) return
+    const u = (clock.elapsedTime * 0.05) % 1
+    g.current.position.set(-8 + u * 16, 3.4, -6 + u * 2)
+    g.current.rotation.set(0.2, 0.6 + u, 0)
+  })
+  return (
+    <group ref={g}>
+      <ModelFit url={url} size={2.2} />
+      <Html center position={[0, -1.8, 0]} className="model-tag">
+        <b>{label}</b>
+        <span>{sub}</span>
+      </Html>
     </group>
   )
 }

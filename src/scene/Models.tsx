@@ -1,7 +1,7 @@
 import { useGLTF } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { useSimFrame } from './motionState'
 import type { ModelSpec, ProcKind } from '../data/artifacts'
 
 const GOLD = '#c9a24a'
@@ -24,7 +24,7 @@ export const newRig = (): Rig => ({ wheels: [], rotors: [], arm: [], armBase: []
 
 export function ArtifactModel({ spec, grounded, spin, rig }: { spec: ModelSpec; grounded: boolean; spin?: boolean; rig: Rig }) {
   const ref = useRef<THREE.Group>(null)
-  useFrame((_, dt) => {
+  useSimFrame((_, dt) => {
     if (spin && ref.current) ref.current.rotation.y += dt * 0.15
   })
   return (
@@ -479,4 +479,70 @@ function Sojourner({ reg }: { reg: Reg }) {
 
 export function preloadModels(urls: string[]) {
   urls.forEach((u) => useGLTF.preload(u))
+}
+
+/** Load any NASA GLB, normalize to `size` (largest dimension), optionally drop meshes above a height fraction */
+export function ModelFit({
+  url,
+  size,
+  anchor = 'center',
+  cutAbove,
+  rot,
+  axis = 'max',
+}: {
+  url: string
+  size: number
+  anchor?: 'center' | 'bottom'
+  cutAbove?: number
+  rot?: [number, number, number]
+  axis?: 'max' | 'y'
+}) {
+  const { scene } = useGLTF(url)
+  const { obj, s, off } = useMemo(() => {
+    const c = scene.clone(true)
+    if (rot) c.rotation.set(...rot)
+    c.updateMatrixWorld(true)
+    let box = new THREE.Box3().setFromObject(c)
+    if (cutAbove !== undefined) {
+      const cut = box.min.y + (box.max.y - box.min.y) * cutAbove
+      const drop: THREE.Object3D[] = []
+      c.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh && new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()).y > cut) drop.push(o)
+      })
+      drop.forEach((o) => o.removeFromParent())
+      box = new THREE.Box3().setFromObject(c)
+    }
+    c.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (m.isMesh) {
+        m.castShadow = true
+        m.receiveShadow = true
+        ;(Array.isArray(m.material) ? m.material : [m.material]).forEach((mt) => (mt.side = THREE.DoubleSide))
+      }
+    })
+    const sz = box.getSize(new THREE.Vector3())
+    const ctr = box.getCenter(new THREE.Vector3())
+    const s = size / (axis === 'y' ? sz.y : Math.max(sz.x, sz.y, sz.z))
+    return { obj: c, s, off: new THREE.Vector3(-ctr.x, anchor === 'bottom' ? -box.min.y : -ctr.y, -ctr.z) }
+  }, [scene, size, anchor, cutAbove, rot, axis])
+  return (
+    <group scale={s}>
+      <primitive object={obj} position={off} />
+    </group>
+  )
+}
+
+export const NASA_MODELS = {
+  lro: '/models/lro.glb',
+  mro: '/models/mro.glb',
+  voyager: '/models/voyager.glb',
+  osiris: '/models/osiris-rex.glb',
+  bennu: '/models/bennu.glb',
+  tess: '/models/tess.glb',
+  jwst: '/models/jwst.glb',
+  dsn: '/models/dsn.glb',
+  iss: '/models/iss.glb',
+  hubble: '/models/hubble.glb',
+  vab: '/models/vab.glb',
+  perseverance: '/models/perseverance.glb',
 }

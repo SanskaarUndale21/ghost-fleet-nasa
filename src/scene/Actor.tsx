@@ -1,5 +1,5 @@
 import { useGLTF } from '@react-three/drei'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { CameraControls as CC } from '@react-three/drei'
@@ -7,7 +7,7 @@ import type { Artifact } from '../data/artifacts'
 import type { Act } from '../data/missions'
 import { Flame, Laser, Particles, Tracks, type ParticlesHandle, type TracksHandle } from './Effects'
 import { ArtifactModel, newRig, type Rig } from './Models'
-import { motion, smooth } from './motionState'
+import { motion, smooth, useSimFrame } from './motionState'
 import { terrainHeight } from './util'
 
 type Ground = 'moon' | 'mars' | null
@@ -58,7 +58,7 @@ export function Actor({ a, act, ground, replay, ascentGone }: { a: Artifact; act
   const emit = (pos: THREE.Vector3, count: number, speed = 1.2, up = 0.6, size2 = 0.12, life = 1.6) =>
     parts.current?.emit({ pos, count, speed, up, size: size2, life, color: dustColor, ...dustPhys, spread: 1 })
 
-  useFrame(({ clock }, dtRaw) => {
+  useSimFrame(({ clock }, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05)
     if (start.current < 0) start.current = clock.elapsedTime
     const t = clock.elapsedTime - start.current
@@ -366,7 +366,7 @@ function Airbags({ ground, onDust }: { ground: Ground; onDust: (p: THREE.Vector3
     }
     return out
   }, [])
-  useFrame(({ clock }) => {
+  useSimFrame(({ clock }) => {
     if (!g.current) return
     if (start.current < 0) start.current = clock.elapsedTime
     const t = clock.elapsedTime - start.current
@@ -435,7 +435,7 @@ function SkyCrane({
   const start = useRef(-1)
   const flames = useRef({ on: 0, pos: new THREE.Vector3() })
   const g0 = ground ? terrainHeight(ground, 0, 0) : 0
-  useFrame(({ clock }) => {
+  useSimFrame(({ clock }) => {
     if (start.current < 0) start.current = clock.elapsedTime
     const t = clock.elapsedTime - start.current
     if (!rv.current || !crane.current || !cables.current) return

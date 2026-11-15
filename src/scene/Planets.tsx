@@ -1,7 +1,7 @@
 import { useTexture } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { useSimFrame } from './motionState'
 
 // Textures: Solar System Scope (CC BY 4.0) and NASA SVS CGI Moon Kit
 export const TEX = {
@@ -71,7 +71,7 @@ export function Earth({ r, sunDir = new THREE.Vector3(1, 0.25, 0.6), spin = 0.02
       }),
     [day, night, sunDir],
   )
-  useFrame((_, dt) => {
+  useSimFrame((_, dt) => {
     if (surf.current) surf.current.rotation.y += dt * spin
     if (cl.current) cl.current.rotation.y += dt * spin * 1.25
   })
@@ -94,7 +94,7 @@ export function Planet({ tex, r, color = '#ffffff', atmo, spin = 0.015 }: { tex:
   map.colorSpace = THREE.SRGBColorSpace
   map.anisotropy = 8
   const m = useRef<THREE.Mesh>(null)
-  useFrame((_, dt) => {
+  useSimFrame((_, dt) => {
     if (m.current) m.current.rotation.y += dt * spin
   })
   return (
@@ -136,7 +136,7 @@ export function Sun({ r, glow = 1 }: { r: number; glow?: number }) {
     [map],
   )
   const m = useRef<THREE.Mesh>(null)
-  useFrame(({ clock }, dt) => {
+  useSimFrame(({ clock }, dt) => {
     mat.uniforms.t.value = clock.elapsedTime
     if (m.current) m.current.rotation.y += dt * 0.02
   })

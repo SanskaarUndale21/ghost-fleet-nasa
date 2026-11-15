@@ -6,8 +6,8 @@ import type { CameraControls as CC } from '@react-three/drei'
 import type { Artifact } from '../data/artifacts'
 import type { Beat, Body, Craft } from '../data/missions'
 import { Flame, Particles, type ParticlesHandle } from './Effects'
-import { ArtifactModel, newRig } from './Models'
-import { motion, playback, smooth } from './motionState'
+import { ArtifactModel, ModelFit, NASA_MODELS, newRig } from './Models'
+import { motion, playback, smooth, useSimFrame } from './motionState'
 import { fbm, latLonToVec } from './util'
 import { SpaceSky } from './Worlds'
 import { Earth, Sun, TEX } from './Planets'
@@ -31,11 +31,14 @@ function useDirector(fn: (t: number, cam: (px: number, py: number, pz: number, t
       ctl.enabled = true
     }
   }, [ctl, key])
-  useFrame(({ clock }, dt) => {
+  // paused: hand the camera to the user; playing: the director drives it
+  useFrame(() => {
+    if (ctl) ctl.enabled = playback.paused
+  })
+  useSimFrame(({ clock }, dt) => {
     if (start.current < 0) start.current = clock.elapsedTime
     const t = clock.elapsedTime - start.current
     motion.t = t
-    if (ctl) ctl.enabled = playback.paused
     fn(t, (px, py, pz, tx, ty, tz, rate = 3) => {
       if (!ctl || playback.paused) return
       const k = first.current ? 1 : Math.min(1, dt * rate)
@@ -216,6 +219,13 @@ export function LaunchScene({ a, beat }: { a: Artifact; beat: Beat }) {
           <cylinderGeometry args={[6, 7, 0.4, 32]} />
           <meshStandardMaterial color="#9b9a95" roughness={1} />
         </mesh>
+        {m.rocket === 'saturnv' && (
+          <group position={[-70, 0, -150]} rotation={[0, 0.5, 0]}>
+            <Suspense fallback={null}>
+              <ModelFit url={NASA_MODELS.vab} size={30} anchor="bottom" />
+            </Suspense>
+          </group>
+        )}
         <LaunchTower height={H * 1.08} color={m.rocket === 'saturnv' ? '#b5432f' : '#8a8d93'} side={-1} />
         {/* flame trench + lightning masts + water tower */}
         <mesh position={[0, 0.41, 3.2]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -490,7 +500,7 @@ export function EntryScene({ a, beat }: { a: Artifact; beat: Beat }) {
     if (plasma.current) {
       plasma.current.visible = heat > 0.02
       plasma.current.scale.setScalar(1 + Math.sin(t * 30) * 0.03)
-      ;(plasma.current.material as THREE.MeshBasicMaterial).opacity = heat * 0.45
+      ;(plasma.current.material as THREE.MeshBasicMaterial).opacity = heat * 0.22
     }
     if (heat > 0.1)
       for (let i = 0; i < 6; i++)
@@ -571,6 +581,17 @@ export function EntryScene({ a, beat }: { a: Artifact; beat: Beat }) {
         </group>
       </group>
       <Particles ref={streaks} additive />
+      {a.id === 'phoenix' && (
+        <group position={[-3, 2.5, 2.2]} rotation={[0.4, 0.8, 0]}>
+          <Suspense fallback={null}>
+            <ModelFit url={NASA_MODELS.mro} size={2.4} />
+          </Suspense>
+          <Html position={[0, -1.6, 0]} center className="model-tag">
+            <b>Mars Reconnaissance Orbiter</b>
+            <span>photographing Phoenix under its parachute</span>
+          </Html>
+        </group>
+      )}
     </>
   )
 }
@@ -641,7 +662,7 @@ function ApolloSep({ lm }: { lm: { current: number } }) {
     w.scale.setScalar(s)
     return w
   }, [scene])
-  useFrame(() => {
+  useSimFrame(() => {
     if (g.current) g.current.position.y = 0.3 + lm.current
   })
   return (
@@ -664,6 +685,7 @@ function ApolloSep({ lm }: { lm: { current: number } }) {
 /* ═════════════════════ JUPITER FLYBY ═════════════════════ */
 export function FlybyScene({ a, beat }: { a: Artifact; beat: Beat }) {
   const craft = useRef<THREE.Group>(null)
+  const voyager = useRef<THREE.Group>(null)
   const legacy = beat.phase === 'Legacy'
   useDirector((t, cam) => {
     const u = t / 18
@@ -671,6 +693,10 @@ export function FlybyScene({ a, beat }: { a: Artifact; beat: Beat }) {
     if (craft.current) {
       craft.current.position.copy(p)
       craft.current.rotation.y = t * 0.4
+    }
+    if (voyager.current) {
+      voyager.current.position.set(p.x + 5 - t * 0.4, p.y + 1.5, p.z - 3)
+      voyager.current.rotation.y = -t * 0.3
     }
     motion.label = legacy ? 'GRAVITY ASSIST' : t < 6 ? 'APPROACH' : t < 12 ? 'CLOSEST APPROACH · INTENSE RADIATION' : 'DEPARTING JUPITER'
     motion.sub = beat.date ?? ''
@@ -706,6 +732,17 @@ export function FlybyScene({ a, beat }: { a: Artifact; beat: Beat }) {
           </Suspense>
         </group>
       </group>
+      {legacy && (
+        <group ref={voyager}>
+          <Suspense fallback={null}>
+            <ModelFit url={NASA_MODELS.voyager} size={3.4} />
+          </Suspense>
+          <Html position={[0, -2.4, 0]} center className="model-tag">
+            <b>Voyager 1 &amp; 2</b>
+            <span>Launched 1977, followed the path Pioneer opened</span>
+          </Html>
+        </group>
+      )}
     </>
   )
 }
@@ -837,3 +874,102 @@ export function TransitScene({ beat }: { beat: Beat }) {
 }
 
 useGLTF.preload('/models/saturn-v.glb')
+
+/* ═════════════════════ LEGACY: the missions that followed ═════════════════════ */
+const SUCCESSORS: Record<string, { url: string; label: string; sub: string; size: number }> = {
+  osiris: { url: NASA_MODELS.osiris, label: 'OSIRIS-REx', sub: 'Touched asteroid Bennu in 2020, samples landed 2023', size: 3.2 },
+  bennu: { url: NASA_MODELS.bennu, label: 'Asteroid Bennu', sub: 'about 500 m wide', size: 6 },
+  tess: { url: NASA_MODELS.tess, label: 'TESS', sub: 'Planet hunter launched 2018, scans almost the whole sky', size: 3 },
+  jwst: { url: NASA_MODELS.jwst, label: 'James Webb Space Telescope', sub: 'Studies exoplanet atmospheres since 2022', size: 5.5 },
+}
+export function LegacyScene({ a, beat }: { a: Artifact; beat: Beat }) {
+  const list = (beat.with ?? []).map((k) => SUCCESSORS[k])
+  const g = useRef<THREE.Group>(null)
+  useDirector((t, cam) => {
+    const ang = -0.5 + t * 0.06
+    cam(Math.sin(ang) * 16, 3 + Math.sin(t * 0.2), Math.cos(ang) * 16, 0, 0.3, 0)
+    if (g.current) g.current.children.forEach((c, i) => (c.rotation.y = t * (0.15 + i * 0.05)))
+    motion.label = 'THE MISSIONS THAT FOLLOWED'
+    motion.sub = `${a.name} → ${list.map((x) => x.label).join(' + ')}`
+  }, beat)
+  const pos: [number, number, number][] = list.length === 2 ? [[-4.2, 0, 0], [4.2, 0, -1]] : [[0, 0, 0]]
+  return (
+    <>
+      <SpaceSky />
+      <ambientLight intensity={0.35} />
+      <directionalLight position={[10, 8, 10]} intensity={2.6} />
+      <directionalLight position={[-10, -4, -6]} intensity={0.6} color="#8fb4ff" />
+      <group ref={g}>
+        {list.map((m, i) => (
+          <group key={m.label} position={pos[i]}>
+            <Suspense fallback={null}>
+              <ModelFit url={m.url} size={m.size} />
+            </Suspense>
+          </group>
+        ))}
+      </group>
+      {list.map((m, i) => (
+        <Html key={m.label} position={[pos[i][0], -m.size * 0.55 - 0.8, pos[i][2]]} center className="model-tag">
+          <b>{m.label}</b>
+          <span>{m.sub}</span>
+        </Html>
+      ))}
+      <group position={[0, 4.4, -6]} scale={0.35}>
+        <Suspense fallback={null}>
+          <CraftModel a={a} craft="self" />
+        </Suspense>
+      </group>
+      <Html position={[0, 3.2, -6]} center className="model-tag dim">
+        <b>{a.name}</b>
+      </Html>
+    </>
+  )
+}
+
+/* ═════════════════════ DEEP SPACE NETWORK: listening for a faint signal ═════════════════════ */
+export function DsnScene({ a, beat }: { a: Artifact; beat: Beat }) {
+  const waves = useRef<THREE.Group>(null)
+  useDirector((t, cam) => {
+    const ang = 0.8 + t * 0.03
+    cam(Math.cos(ang) * 30, 9, Math.sin(ang) * 30, 0, 7, 0)
+    const fade = Math.max(0, 1 - t / 12)
+    if (waves.current)
+      waves.current.children.forEach((c, i) => {
+        const k = (t * 0.25 + i / 4) % 1
+        c.position.y = 16 + (1 - k) * 40
+        c.scale.setScalar(0.5 + (1 - k) * 2)
+        ;((c as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = k * 0.6 * fade
+      })
+    motion.signal = t > 12 ? 0 : 1
+    motion.label = t < 6 ? 'DEEP SPACE NETWORK · LISTENING' : t < 12 ? 'SIGNAL VERY FAINT' : 'NO SIGNAL'
+    motion.sub = `70 m antenna, Goldstone, California · ${a.name}`
+  }, beat)
+  return (
+    <>
+      <SpaceSky dim={1.2} />
+      <hemisphereLight args={['#5b6c99', '#2a2219', 0.6]} />
+      <directionalLight position={[-20, 15, 10]} intensity={0.9} color="#c8d4ff" />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[200, 48]} />
+        <meshStandardMaterial color="#5a4a3a" roughness={1} />
+      </mesh>
+      {[[-60, -90], [70, -110], [-120, -40]].map(([x, z], i) => (
+        <mesh key={i} position={[x, 6, z]} scale={[30, 12, 18]}>
+          <icosahedronGeometry args={[1, 1]} />
+          <meshStandardMaterial color="#3a3026" roughness={1} flatShading />
+        </mesh>
+      ))}
+      <Suspense fallback={null}>
+        <ModelFit url={NASA_MODELS.dsn} size={18} anchor="bottom" />
+      </Suspense>
+      <group ref={waves}>
+        {[0, 1, 2, 3].map((i) => (
+          <mesh key={i} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.5, 0.05, 6, 48]} />
+            <meshBasicMaterial color="#7dffd0" transparent opacity={0.4} toneMapped={false} />
+          </mesh>
+        ))}
+      </group>
+    </>
+  )
+}

@@ -313,3 +313,10 @@
   .dest-card { padding: 7px 10px; }
   .dest-count { font-size: 9.5px; }
 }
+
+.nav-hint { position: absolute; right: 24px; bottom: 168px; display: flex; gap: 10px; align-items: center; font-family: var(--mono); font-size: 10.5px; color: var(--mute); }
+.model-tag { display: grid; gap: 2px; text-align: center; white-space: nowrap; pointer-events: none; background: rgba(5,8,15,.72); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; }
+.model-tag b { font-weight: 600; font-size: 13px; color: #eef3fa; font-family: var(--serif); }
+.model-tag span { font-family: var(--mono); font-size: 10px; color: var(--mute); }
+.model-tag.dim { opacity: .7; }
+@media (max-width: 760px) { .nav-hint span { display: none; } .nav-hint { bottom: 150px; right: 12px; } }

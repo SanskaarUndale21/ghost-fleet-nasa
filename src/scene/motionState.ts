@@ -46,3 +46,20 @@ export const smooth = (a: number, b: number, x: number) => {
   const v = clamp01((x - a) / (b - a))
   return v * v * (3 - 2 * v)
 }
+
+/* Simulation clock: every scene animation reads time through these, so pausing freezes the 3D world
+   while the camera stays free to orbit. */
+import { useFrame, type RootState } from '@react-three/fiber'
+export function useSimFrame(cb: (state: RootState, delta: number) => void, priority?: number) {
+  useFrame((s, d) => {
+    if (playback.paused) return
+    cb(s, d)
+  }, priority)
+}
+/** Mount once inside <Canvas>: holds clock.elapsedTime still while paused */
+export function SimClock() {
+  useFrame((s, d) => {
+    if (playback.paused) s.clock.elapsedTime -= d
+  }, -1)
+  return null
+}

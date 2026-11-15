@@ -1,7 +1,6 @@
-import { useFrame } from '@react-three/fiber'
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { motion } from './motionState'
+import { motion, useSimFrame } from './motionState'
 
 /* ───────────── generic particle pool ───────────── */
 export type EmitOpts = {
@@ -77,9 +76,10 @@ export const Particles = forwardRef<ParticlesHandle, { additive?: boolean }>(fun
         st.pos[i * 3] = o.pos.x + (Math.random() - 0.5) * 0.2
         st.pos[i * 3 + 1] = o.pos.y
         st.pos[i * 3 + 2] = o.pos.z + (Math.random() - 0.5) * 0.2
-        st.col[i * 3] = c.r * (0.85 + Math.random() * 0.3)
-        st.col[i * 3 + 1] = c.g * (0.85 + Math.random() * 0.3)
-        st.col[i * 3 + 2] = c.b * (0.85 + Math.random() * 0.3)
+        const shade = 0.85 + Math.random() * 0.3
+        st.col[i * 3] = c.r * shade
+        st.col[i * 3 + 1] = c.g * shade
+        st.col[i * 3 + 2] = c.b * shade
         st.age[i] = 0
         st.life[i] = (o.life ?? 1.5) * (0.6 + Math.random() * 0.8)
         st.s0[i] = (o.size ?? 0.08) * (0.6 + Math.random() * 0.8)
@@ -92,7 +92,7 @@ export const Particles = forwardRef<ParticlesHandle, { additive?: boolean }>(fun
       st.age.fill(1e9)
     },
   }))
-  useFrame((_, dtRaw) => {
+  useSimFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05)
     for (let i = 0; i < N; i++) {
       if (st.age[i] > st.life[i]) {
@@ -136,7 +136,7 @@ export function Flame({
   const g = useRef<THREE.Group>(null)
   const q = useMemo(() => new THREE.Quaternion(), [])
   const down = useMemo(() => new THREE.Vector3(0, -1, 0), [])
-  useFrame(({ clock }) => {
+  useSimFrame(({ clock }) => {
     if (!g.current) return
     const s = get()
     g.current.visible = s.on > 0.02
@@ -214,7 +214,7 @@ export function Weather({ center }: { center?: THREE.Vector3 }) {
     return { pos, g }
   }, [])
   const mat = useMemo(() => new THREE.PointsMaterial({ size: 0.06, transparent: true, opacity: 0, depthWrite: false, color: '#fff' }), [])
-  useFrame((_, dtRaw) => {
+  useSimFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05)
     const mode = motion.storm > 0.01 ? 'storm' : motion.snow > 0.01 ? 'snow' : motion.sun > 0.01 ? 'sun' : ''
     mat.opacity = mode === 'storm' ? motion.storm * 0.75 : mode === 'snow' ? motion.snow * 0.9 : mode === 'sun' ? motion.sun * 0.8 : 0
@@ -268,7 +268,7 @@ export function Laser({ from, to }: { from: THREE.Vector3; to: THREE.Vector3 }) 
       }),
     [len],
   )
-  useFrame(({ clock }) => {
+  useSimFrame(({ clock }) => {
     mat.uniforms.t.value = clock.elapsedTime
   })
   return (

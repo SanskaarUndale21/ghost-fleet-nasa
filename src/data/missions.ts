@@ -1,10 +1,10 @@
 // Full mission timelines: launch on Earth to where each machine rests today.
 export type Phase = 'Launch' | 'Cruise' | 'Arrival' | 'Mission' | 'Discovery' | 'Legacy' | 'Today'
-export type SceneKind = 'launch' | 'cruise' | 'entry' | 'orbit' | 'flyby' | 'stage' | 'interior' | 'transit'
+export type SceneKind = 'launch' | 'cruise' | 'entry' | 'orbit' | 'flyby' | 'stage' | 'interior' | 'transit' | 'legacy' | 'dsn'
 export type Act =
   | 'idle' | 'land' | 'bounce' | 'liftoff' | 'laser' | 'quake' | 'deploy' | 'drive' | 'driveBack' | 'driveIn'
   | 'stuck' | 'dust' | 'rest' | 'dig' | 'snow' | 'frost' | 'fly' | 'crash' | 'skycrane' | 'airbag' | 'drift'
-  | 'ion' | 'coast' | 'sunlight' | 'dropoff'
+  | 'ion' | 'coast' | 'sunlight' | 'dropoff' | 'compare'
 export type Body = 'moon' | 'mars' | 'vesta' | 'ceres' | 'eros' | 'jupiter' | 'sun'
 export type RocketKind = 'saturnv' | 'atlas-centaur' | 'titan3e' | 'delta2' | 'delta2h' | 'atlasv'
 export type Craft = 'self' | 'aeroshell' | 'apollo' | 'lm'
@@ -19,6 +19,7 @@ export type Beat = {
   body?: Body
   cam?: [number, number, number]
   highlight?: string
+  with?: ('osiris' | 'bennu' | 'tess' | 'jwst')[]
 }
 
 export type Mission = {
@@ -76,7 +77,7 @@ export const MISSIONS: Record<string, Mission> = {
       { phase: 'Legacy', scene: 'stage', act: 'idle', cam: C2, title: 'What the rocks told us', highlight: '21.5 kg of Moon rock',
         text: "Apollo 11's rocks gave the first clues that the young Moon was covered by an ocean of molten rock. Samples from later missions showed the Moon is about 4.5 billion years old. Five more crews landed after us." },
       { phase: 'Today', scene: 'stage', act: 'rest', cam: C4, title: 'Where I am now',
-        text: "I still stand in the Sea of Tranquility. A plaque on my leg reads: Here men from the planet Earth first set foot upon the Moon, July 1969 A.D. We came in peace for all mankind." },
+        text: "I still stand in the Sea of Tranquility. A plaque on my leg reads: Here men from the planet Earth first set foot upon the Moon, July 1969 A.D. We came in peace for all mankind. In 2009, NASA's Lunar Reconnaissance Orbiter photographed me from orbit, along with the astronauts' footpaths." },
     ],
   },
 
@@ -116,7 +117,7 @@ export const MISSIONS: Record<string, Mission> = {
       { phase: 'Legacy', scene: 'stage', act: 'drive', cam: C2, title: 'Road trips on the Moon', highlight: '~90 km driven by 3 rovers',
         text: "Apollo 16 and 17 brought rovers too. Gene Cernan and Harrison Schmitt drove about 36 km on Apollo 17. Rovers let astronauts reach far more places and bring back far more kinds of rock." },
       { phase: 'Today', scene: 'stage', act: 'rest', cam: C4, title: 'Where I am now',
-        text: "At the end of each mission the crew parked the rover a short distance away and pointed its TV camera at the lander, so people on Earth could watch the lift-off live. Three of us are still parked on the Moon." },
+        text: "At the end of each mission the crew parked the rover a short distance away and pointed its TV camera at the lander, so people on Earth could watch the lift-off live. Three of us are still parked on the Moon, and the Lunar Reconnaissance Orbiter can still see our tire tracks from orbit." },
     ],
   },
 
@@ -159,7 +160,7 @@ export const MISSIONS: Record<string, Mission> = {
         text: "I drove down a ramp onto the dirt. I weighed 10.6 kg and moved about 1 centimeter per second, and my six wheels used a rocker-bogie suspension that let me climb over rocks." },
       { phase: 'Discovery', scene: 'stage', act: 'drive', cam: C3, title: 'Rocks with names', highlight: 'Rounded rocks: ancient floods',
         text: "Scientists named the rocks around me: Barnacle Bill, Yogi, Scooby-Doo. My APXS instrument read their chemistry. Many looked rounded and stacked by water, a sign that huge floods once rushed through this valley." },
-      { phase: 'Legacy', scene: 'stage', act: 'idle', cam: C2, title: 'Every rover since', highlight: 'Rocker-bogie: on every Mars rover since',
+      { phase: 'Legacy', scene: 'stage', act: 'compare', cam: [35, 72, 2.2], title: 'Every rover since', highlight: 'Rocker-bogie: on every Mars rover since',
         text: "My rocker-bogie wheels and Pathfinder's airbag landing were reused. Spirit, Opportunity, Curiosity and Perseverance all roll on the same idea I tested first." },
       { phase: 'Today', scene: 'stage', act: 'rest', cam: C4, date: 'Sep 27, 1997', title: 'Where I am now',
         text: "My lander relayed my messages home. When it went silent on September 27, 1997, I could no longer talk to Earth. My mission was planned for 7 days. I lasted 83. I am parked near the lander, now named the Carl Sagan Memorial Station." },
@@ -203,7 +204,7 @@ export const MISSIONS: Record<string, Mission> = {
         text: "The ground was covered in tiny gray balls nicknamed blueberries. They are hematite, which forms in water. Together with the layered rocks, they proved liquid water once soaked this place." },
       { phase: 'Mission', scene: 'stage', act: 'drive', cam: C3, title: 'The marathon', highlight: '45.16 km driven',
         text: "Engineers hoped I would drive about 600 meters. I kept going for years, to Victoria crater and then giant Endeavour crater. In 2015 I passed a full marathon distance, the first ever on another world." },
-      { phase: 'Legacy', scene: 'stage', act: 'idle', cam: C2, title: 'Where to look next',
+      { phase: 'Legacy', scene: 'stage', act: 'compare', cam: [35, 72, 1.9], title: 'Where to look next',
         text: "My discoveries helped convince scientists that ancient Mars had liquid water at its surface. That shaped where Curiosity and Perseverance were sent to search for signs of past life." },
       { phase: 'Today', scene: 'stage', act: 'dust', cam: C4, date: 'Jun 10, 2018', title: 'The dust storm',
         text: "In June 2018 a dust storm covered the whole planet and blocked out the Sun. My solar panels could not make power. After more than 1,000 attempts to wake me, the team said goodbye in February 2019. I rest in Perseverance Valley." },
@@ -289,7 +290,7 @@ export const MISSIONS: Record<string, Mission> = {
         text: "Bolted to me is a gold-coated plaque showing a man and a woman, a map of our Sun's position using pulsars, and a drawing of our solar system with my path. A greeting, in case anyone ever finds me." },
       { phase: 'Legacy', scene: 'flyby', body: 'jupiter', title: 'Opening the way',
         text: "Because of us, Voyager 1 and 2 knew they could cross the asteroid belt and survive Jupiter's radiation. My twin Pioneer 11 used Jupiter's gravity to swing on to Saturn in 1979, the first visit there." },
-      { phase: 'Today', scene: 'stage', act: 'drift', cam: C4, date: 'Jan 23, 2003', title: 'Drifting to the stars',
+      { phase: 'Today', scene: 'dsn', date: 'Jan 23, 2003', title: 'Drifting to the stars',
         text: "My nuclear power slowly faded. Earth heard my last faint signal on January 23, 2003. I am drifting toward the star Aldebaran and will pass it in about 2 million years." },
     ],
   },
@@ -307,7 +308,7 @@ export const MISSIONS: Record<string, Mission> = {
         text: "For a year I circled Eros, a potato-shaped rock about 34 km long, measuring its shape, gravity and chemistry. It is one solid, ancient piece of the early solar system covered in boulders and dust." },
       { phase: 'Mission', scene: 'stage', act: 'land', cam: C2, date: 'Feb 12, 2001', title: 'A bonus landing', highlight: 'First landing on an asteroid',
         text: "I was never built to land. But the team tried a slow descent anyway, and I touched down at about 6 km/h. I still worked! My gamma-ray sensor read the ground for two more weeks." },
-      { phase: 'Legacy', scene: 'stage', act: 'idle', cam: C3, title: 'Asteroid explorers',
+      { phase: 'Legacy', scene: 'legacy', with: ['osiris', 'bennu'], title: 'Asteroid explorers', highlight: 'OSIRIS-REx returned asteroid Bennu samples in 2023',
         text: "What I learned helped plan later missions that touched asteroids and brought samples home, like Japan's Hayabusa and NASA's OSIRIS-REx." },
       { phase: 'Today', scene: 'stage', act: 'rest', cam: C4, date: 'Feb 28, 2001', title: 'Where I am now',
         text: "My last contact was February 28, 2001. I still sit on Eros, riding along as it loops around the Sun, sometimes passing closer to Earth than Mars ever does." },
@@ -345,7 +346,7 @@ export const MISSIONS: Record<string, Mission> = {
         text: "Before me, we knew a few hundred planets around other stars. I found more than 2,600. Most stars have planets, and many may have Earth-sized worlds where liquid water could exist." },
       { phase: 'Mission', scene: 'stage', act: 'sunlight', cam: C3, date: '2013', title: 'Balancing on sunlight',
         text: "In 2013 two of my four reaction wheels failed and I could not point steadily. Engineers balanced me using the gentle pressure of sunlight. My second life, called K2, kept finding planets for years." },
-      { phase: 'Legacy', scene: 'transit', title: 'We are not rare',
+      { phase: 'Legacy', scene: 'legacy', with: ['tess', 'jwst'], title: 'We are not rare',
         text: "Thanks to my data we now think there are more planets than stars in our galaxy. TESS and the James Webb Space Telescope now study the worlds I helped find." },
       { phase: 'Today', scene: 'stage', act: 'drift', cam: C4, date: 'Oct 30, 2018', title: 'Retired',
         text: "I ran out of fuel and was retired on October 30, 2018. I orbit the Sun, slowly falling behind Earth. Scientists are still finding new planets in my data." },
