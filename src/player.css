@@ -124,3 +124,5 @@
 .stars .on { color: var(--gold); text-shadow: 0 0 14px rgba(255,210,122,.6); }
 .mission-end .row { flex-wrap: wrap; }
 @media (max-width: 760px) { .seg-quiz span { display: none; } .badge.score { display: none; } }
+.cc-pill { font-weight: 700; letter-spacing: .06em; }
+.cc-pill:not(.on) { text-decoration: line-through; opacity: .7; }

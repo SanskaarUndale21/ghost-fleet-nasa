@@ -73,6 +73,22 @@ export function StoryPlayer({
     }
   })
   const [file, setFile] = useState(false)
+  const [cc, setCc] = useState(() => {
+    try {
+      return localStorage.getItem('ghostfleet.cc') !== '0'
+    } catch {
+      return true
+    }
+  })
+  const toggleCc = () => {
+    const n = !cc
+    setCc(n)
+    try {
+      localStorage.setItem('ghostfleet.cc', n ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
   const audio = useRef<HTMLAudioElement | null>(null)
   const elapsed = useRef(0)
   const [, force] = useState(0)
@@ -182,7 +198,7 @@ export function StoryPlayer({
       </header>
 
       {/* captions */}
-      {!ended && (
+      {!ended && cc && (
         <section className="captions" aria-live="polite" key={a.id + chapter + ':' + replay}>
           <p className="cap-title">
             <span className={'cap-phase ph-' + beat.phase.toLowerCase()}>{beat.phase}</span>
@@ -246,6 +262,9 @@ export function StoryPlayer({
           </button>
         </div>
         <div className="t-right">
+          <button className={'t-pill cc-pill' + (cc ? ' on' : '')} onClick={toggleCc} aria-pressed={cc} title={cc ? 'Hide subtitles' : 'Show subtitles'}>
+            CC
+          </button>
           <button className={'t-pill' + (sound ? ' on' : '')} onClick={toggleSound} aria-pressed={sound}>
             {sound ? '🔊 Narration' : '🔈 Muted'}
           </button>
