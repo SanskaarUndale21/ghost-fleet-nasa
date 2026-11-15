@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Artifact, Beat } from './data/artifacts'
 import type { Phase } from './data/missions'
 import { Hud } from './Hud'
+import { EXTRA, PASS_MARK, type Q } from './data/quizzes'
 import './player.css'
 
 /* ───────── narration manifest (pre-generated neural voice + word timings) ───────── */
@@ -40,8 +41,8 @@ export function StoryPlayer({
   chapter,
   setChapter,
   onBack,
-  onComplete,
-  done,
+  onScore,
+  best,
   playing,
   setPlaying,
   replay,
@@ -52,8 +53,8 @@ export function StoryPlayer({
   chapter: number
   setChapter: (n: number) => void
   onBack: () => void
-  onComplete: () => void
-  done: boolean
+  onScore: (correct: number) => void
+  best: number
   playing: boolean
   setPlaying: (b: boolean) => void
   replay: number
@@ -198,7 +199,7 @@ export function StoryPlayer({
       )}
 
       {ended && (
-        <MissionEnd a={a} done={done} onComplete={onComplete} onReplayAll={() => { setChapter(0); setPlaying(true) }} onNext={onNextMission} onBack={onBack} />
+        <MissionEnd key={a.id} a={a} best={best} onScore={onScore} onReplayAll={() => { setChapter(0); setPlaying(true) }} onNext={onNextMission} onBack={onBack} />
       )}
 
       {/* transport */}
@@ -235,10 +236,21 @@ export function StoryPlayer({
               {(i === 0 || a.chapters[i - 1].phase !== b.phase) && <span>{b.phase}</span>}
             </button>
           ))}
+          <button
+            className={'seg-quiz' + (ended ? ' now' : '')}
+            onClick={() => setChapter(total)}
+            title="Mission check: 3 questions"
+            aria-label="Jump to the quiz"
+          >
+            ★<span>Quiz</span>
+          </button>
         </div>
         <div className="t-right">
           <button className={'t-pill' + (sound ? ' on' : '')} onClick={toggleSound} aria-pressed={sound}>
             {sound ? '🔊 Narration' : '🔈 Muted'}
+          </button>
+          <button className="t-pill quiz-pill" onClick={() => setChapter(total)} disabled={ended}>
+            ★ Quiz {best > 0 ? `${best}/3` : ''}
           </button>
           <button className={'t-pill' + (file ? ' on' : '')} onClick={() => setFile(!file)} aria-expanded={file}>
             ☰ Mission file
@@ -310,61 +322,114 @@ export function StoryPlayer({
 
 function MissionEnd({
   a,
-  done,
-  onComplete,
+  best,
+  onScore,
   onReplayAll,
   onNext,
   onBack,
 }: {
   a: Artifact
-  done: boolean
-  onComplete: () => void
+  best: number
+  onScore: (correct: number) => void
   onReplayAll: () => void
   onNext: () => void
   onBack: () => void
 }) {
+  const questions: Q[] = useMemo(() => [a.quiz, ...(EXTRA[a.id] ?? [])], [a])
+  const [i, setI] = useState(0)
   const [pick, setPick] = useState<number | null>(null)
+  const [correct, setCorrect] = useState(0)
+  const [finished, setFinished] = useState(false)
+  const q = questions[i]
+  const restart = () => {
+    setI(0)
+    setPick(null)
+    setCorrect(0)
+    setFinished(false)
+  }
+  const next = () => {
+    if (i + 1 < questions.length) {
+      setI(i + 1)
+      setPick(null)
+    } else {
+      setFinished(true)
+      onScore(correct)
+    }
+  }
+
+  if (finished) {
+    const passed = correct >= PASS_MARK
+    return (
+      <section className="mission-end" role="dialog" aria-labelledby="end-h">
+        <p className="eyebrow">Mission check complete</p>
+        <h2 id="end-h">
+          You scored <b className="score-big">{correct}</b> / {questions.length}
+        </h2>
+        <div className="stars" aria-hidden>
+          {questions.map((_, k) => (
+            <span key={k} className={k < correct ? 'on' : ''}>★</span>
+          ))}
+        </div>
+        <p className="verdict">
+          {passed ? `${a.voice} is now in your ghost fleet log.` : `Get ${PASS_MARK} right to add ${a.voice} to your ghost fleet log.`}
+          {best > correct && ` Your best: ${best}/${questions.length}.`}
+        </p>
+        <div className="row">
+          <button className="cta" onClick={onNext}>
+            Next mission →
+          </button>
+          <button className="ghost-btn" onClick={restart}>
+            ↺ Retry quiz
+          </button>
+          <button className="ghost-btn" onClick={onReplayAll}>
+            Watch again
+          </button>
+          <button className="ghost-btn" onClick={onBack}>
+            Back to map
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="mission-end" role="dialog" aria-labelledby="end-h">
-      <p className="eyebrow">Mission complete</p>
-      <h2 id="end-h">{a.quiz.q}</h2>
+      <div className="quiz-head">
+        <p className="eyebrow">Mission check · question {i + 1} of {questions.length}</p>
+        <div className="quiz-dots" aria-hidden>
+          {questions.map((_, k) => (
+            <i key={k} className={k < i ? 'done' : k === i ? 'now' : ''} />
+          ))}
+        </div>
+      </div>
+      <h2 id="end-h">{q.q}</h2>
       <div className="opts">
-        {a.quiz.options.map((o, i) => (
+        {q.options.map((o, k) => (
           <button
-            key={i}
-            className={pick === null ? '' : i === a.quiz.answer ? 'right' : pick === i ? 'wrong' : 'off'}
+            key={k}
+            className={pick === null ? '' : k === q.answer ? 'right' : pick === k ? 'wrong' : 'off'}
             disabled={pick !== null}
             onClick={() => {
-              setPick(i)
-              if (i === a.quiz.answer) onComplete()
+              setPick(k)
+              if (k === q.answer) setCorrect((c) => c + 1)
             }}
           >
+            <span className="opt-key">{String.fromCharCode(65 + k)}</span>
             {o}
           </button>
         ))}
       </div>
       {pick !== null && (
-        <p className="verdict" role="status">
-          {pick === a.quiz.answer ? `Correct. ${a.voice} joins your ghost fleet log.` : 'Not quite.'}
-          {pick !== a.quiz.answer && (
-            <button className="link" onClick={() => setPick(null)}>
-              Try again
-            </button>
-          )}
-        </p>
+        <div className="feedback" role="status">
+          <p className={pick === q.answer ? 'ok' : 'no'}>
+            {pick === q.answer ? 'Correct!' : `Not quite. The answer is ${String.fromCharCode(65 + q.answer)}.`}
+            {q.why && <span> {q.why}</span>}
+          </p>
+          <button className="cta" onClick={next} autoFocus>
+            {i + 1 < questions.length ? 'Next question →' : 'See my score →'}
+          </button>
+        </div>
       )}
-      {done && pick === null && <p className="verdict">Already in your log ◉</p>}
-      <div className="row">
-        <button className="cta" onClick={onNext}>
-          Next mission →
-        </button>
-        <button className="ghost-btn" onClick={onReplayAll}>
-          ↺ Watch again
-        </button>
-        <button className="ghost-btn" onClick={onBack}>
-          Back to map
-        </button>
-      </div>
     </section>
   )
 }

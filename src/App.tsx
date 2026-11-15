@@ -10,11 +10,20 @@ import { CruiseScene, DsnScene, EntryScene, FlybyScene, InteriorScene, LaunchSce
 import { SimClock, playback, resetMotion } from './scene/motionState'
 import type { Beat } from './data/missions'
 import { StoryPlayer } from './StoryPlayer'
+import { PASS_MARK } from './data/quizzes'
 import './App.css'
 
 type View = { mode: 'hub' } | { mode: 'world'; world: World } | { mode: 'artifact'; id: string; from: World }
 
 const KEY = 'ghostfleet.visited.v1'
+const SCORE_KEY = 'ghostfleet.scores.v1'
+function loadScores(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(SCORE_KEY) || '{}')
+  } catch {
+    return {}
+  }
+}
 function loadVisited(): Set<string> {
   try {
     return new Set(JSON.parse(localStorage.getItem(KEY) || '[]'))
@@ -30,6 +39,8 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null)
   const [chapter, setChapter] = useState(0)
   const [visited, setVisited] = useState<Set<string>>(loadVisited)
+  const [scores, setScores] = useState<Record<string, number>>(loadScores)
+  const totalScore = Object.values(scores).reduce((x, y) => x + y, 0)
   const [showSources, setShowSources] = useState(false)
   const [intro, setIntro] = useState(true)
   const [replay, setReplay] = useState(0)
@@ -122,6 +133,7 @@ export default function App() {
         }}
         onWorld={goWorld}
         visitedCount={visited.size}
+        score={totalScore}
         onSources={() => setShowSources(true)}
       />
 
@@ -136,8 +148,19 @@ export default function App() {
           chapter={chapter}
           setChapter={setChapter}
           onBack={back}
-          onComplete={() => markVisited(current.id)}
-          done={visited.has(current.id)}
+          best={scores[current.id] ?? 0}
+          onScore={(n) => {
+            setScores((prev) => {
+              const next = { ...prev, [current.id]: Math.max(prev[current.id] ?? 0, n) }
+              try {
+                localStorage.setItem(SCORE_KEY, JSON.stringify(next))
+              } catch {
+                /* ignore */
+              }
+              return next
+            })
+            if (n >= PASS_MARK) markVisited(current.id)
+          }}
           playing={playing}
           setPlaying={setPlaying}
           replay={replay}
@@ -162,12 +185,14 @@ function TopBar({
   onHome,
   onWorld,
   visitedCount,
+  score,
   onSources,
 }: {
   view: View
   onHome: () => void
   onWorld: (w: World) => void
   visitedCount: number
+  score: number
   onSources: () => void
 }) {
   return (
@@ -200,6 +225,9 @@ function TopBar({
       <div className="top-right">
         <span className="badge" title="Stories completed">
           <span className="dot" /> {visitedCount}/{ARTIFACTS.length} ghosts found
+        </span>
+        <span className="badge score" title="Quiz score across all missions">
+          ★ {score}/{ARTIFACTS.length * 3}
         </span>
         <button className="ghost-btn" onClick={onSources}>
           Sources

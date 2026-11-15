@@ -96,3 +96,31 @@
   .player-ui .highlight { top: 196px; bottom: auto; }
   .cap-text { font-size: 14.5px; }
 }
+
+/* ───── quiz ───── */
+.seg-quiz {
+  flex: none; position: relative; height: 22px; margin-top: -8px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid rgba(255,210,122,.55); background: rgba(255,210,122,.08); color: var(--gold); font-size: 12px; display: inline-flex; align-items: center; gap: 5px;
+}
+.seg-quiz span { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+.seg-quiz:hover, .seg-quiz.now { background: var(--gold); color: #1b1203; }
+.quiz-pill { border-color: rgba(255,210,122,.5) !important; color: var(--gold) !important; }
+.quiz-pill:disabled { opacity: .4; }
+.badge.score { color: #ffe9b0; }
+.quiz-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.quiz-dots { display: flex; gap: 6px; }
+.quiz-dots i { width: 26px; height: 5px; border-radius: 3px; background: rgba(160,190,230,.2); }
+.quiz-dots i.done { background: var(--mint); } .quiz-dots i.now { background: var(--gold); }
+.mission-end .opts button { display: flex; gap: 12px; align-items: center; }
+.opt-key { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--mute); }
+.mission-end .opts .right .opt-key { background: var(--mint); color: #04130d; border-color: var(--mint); }
+.mission-end .opts .wrong .opt-key { background: var(--bad); color: #1b0805; border-color: var(--bad); }
+.feedback { margin-top: 16px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.feedback p { margin: 0; flex: 1; min-width: 220px; font-size: 15px; line-height: 1.45; color: #d6dce6; }
+.feedback p.ok::first-line { color: var(--mint); } .feedback p.no::first-line { color: var(--bad); }
+.feedback p.ok { border-left: 3px solid var(--mint); padding-left: 10px; } .feedback p.no { border-left: 3px solid var(--bad); padding-left: 10px; }
+.score-big { font-size: 44px; color: var(--gold); font-weight: 600; }
+.stars { display: flex; gap: 8px; font-size: 30px; color: rgba(160,190,230,.25); margin: 4px 0 8px; }
+.stars .on { color: var(--gold); text-shadow: 0 0 14px rgba(255,210,122,.6); }
+.mission-end .row { flex-wrap: wrap; }
+@media (max-width: 760px) { .seg-quiz span { display: none; } .badge.score { display: none; } }
