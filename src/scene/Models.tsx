@@ -10,15 +10,31 @@ const METAL = '#b9bec6'
 const DARK = '#2a2d33'
 const PANEL = '#1b2a4a'
 
-export function ArtifactModel({ spec, grounded, spin }: { spec: ModelSpec; grounded: boolean; spin?: boolean }) {
+// movable sub-parts discovered at load, driven by the Actor
+export type Rig = {
+  wheels: THREE.Object3D[]
+  rotors: { pivot: THREE.Object3D; axis: THREE.Vector3 }[]
+  arm: THREE.Object3D[]
+  armBase: THREE.Quaternion[]
+  ascent: THREE.Object3D | null
+  ascentBase: THREE.Vector3
+  scale: number
+}
+export const newRig = (): Rig => ({ wheels: [], rotors: [], arm: [], armBase: [], ascent: null, ascentBase: new THREE.Vector3(), scale: 1 })
+
+export function ArtifactModel({ spec, grounded, spin, rig }: { spec: ModelSpec; grounded: boolean; spin?: boolean; rig: Rig }) {
   const ref = useRef<THREE.Group>(null)
   useFrame((_, dt) => {
     if (spin && ref.current) ref.current.rotation.y += dt * 0.15
   })
-  return <group ref={ref}>{spec.type === 'glb' ? <Glb spec={spec} grounded={grounded} /> : <Proc kind={spec.kind} />}</group>
+  return (
+    <group ref={ref}>
+      {spec.type === 'glb' ? <Glb spec={spec} grounded={grounded} rig={rig} /> : <Proc kind={spec.kind} rig={rig} />}
+    </group>
+  )
 }
 
-function Glb({ spec, grounded }: { spec: Extract<ModelSpec, { type: 'glb' }>; grounded: boolean }) {
+function Glb({ spec, grounded, rig }: { spec: Extract<ModelSpec, { type: 'glb' }>; grounded: boolean; rig: Rig }) {
   const { scene } = useGLTF(spec.url)
   const { obj, scale, offset } = useMemo(() => {
     const c = scene.clone(true)
@@ -45,8 +61,10 @@ function Glb({ spec, grounded }: { spec: Extract<ModelSpec, { type: 'glb' }>; gr
     const center = box.getCenter(new THREE.Vector3())
     const s = (spec.size ?? 3) / Math.max(size.x, size.y, size.z)
     const off = new THREE.Vector3(-center.x, grounded ? -box.min.y : -center.y, -center.z)
+    rigUp(c, rig, spec, box)
+    rig.scale = s
     return { obj: c, scale: s, offset: off }
-  }, [scene, spec, grounded])
+  }, [scene, spec, grounded, rig])
   return (
     <group scale={scale}>
       <primitive object={obj} position={offset} />
@@ -54,20 +72,77 @@ function Glb({ spec, grounded }: { spec: Extract<ModelSpec, { type: 'glb' }>; gr
   )
 }
 
+function rigUp(c: THREE.Object3D, rig: Rig, spec: Extract<ModelSpec, { type: 'glb' }>, box: THREE.Box3) {
+  rig.rotors = []
+  rig.arm = []
+  rig.armBase = []
+  rig.ascent = null
+  const up = new THREE.Vector3(0, 1, 0)
+  const q = new THREE.Quaternion()
+  const named: THREE.Object3D[] = []
+  c.traverse((o) => named.push(o))
+  for (const o of named) {
+    if (/^rotors_0/.test(o.name) && o.parent) {
+      // re-pivot rotor around its own center so it spins in place
+      const parent = o.parent
+      const b = new THREE.Box3().setFromObject(o)
+      const cw = b.getCenter(new THREE.Vector3())
+      const pivot = new THREE.Group()
+      parent.add(pivot)
+      pivot.position.copy(parent.worldToLocal(cw.clone()))
+      pivot.updateMatrixWorld(true)
+      pivot.attach(o)
+      parent.getWorldQuaternion(q)
+      rig.rotors.push({ pivot, axis: up.clone().applyQuaternion(q.clone().invert()).normalize() })
+    }
+    if (/^arm_0[12]$/.test(o.name)) {
+      rig.arm.push(o)
+      rig.armBase.push(o.quaternion.clone())
+    }
+  }
+  if (spec.split === 'lm') {
+    // everything above the descent stage = ascent stage
+    const cut = box.min.y + (box.max.y - box.min.y) * 0.47
+    const asc = new THREE.Group()
+    c.add(asc)
+    c.updateMatrixWorld(true)
+    const meshes: THREE.Mesh[] = []
+    c.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh)
+    })
+    for (const m of meshes) {
+      const b = new THREE.Box3().setFromObject(m)
+      if (b.getCenter(new THREE.Vector3()).y > cut) asc.attach(m)
+    }
+    rig.ascent = asc
+    rig.ascentBase.copy(asc.position)
+  }
+}
+
 function std(color: string, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) {
   return <meshStandardMaterial color={color} roughness={0.55} metalness={0.4} {...extra} />
 }
 
-function Proc({ kind }: { kind: ProcKind }) {
-  if (kind === 'lrv') return <LRV />
+function Proc({ kind, rig }: { kind: ProcKind; rig: Rig }) {
+  rig.wheels = []
+  rig.rotors = []
+  rig.arm = []
+  rig.ascent = null
+  rig.scale = 1
+  const reg = (o: THREE.Object3D | null) => {
+    if (o && !rig.wheels.includes(o)) rig.wheels.push(o)
+  }
+  if (kind === 'lrv') return <LRV reg={reg} />
   if (kind === 'surveyor') return <Surveyor />
   if (kind === 'alsep') return <Alsep />
-  return <Sojourner />
+  return <Sojourner reg={reg} />
 }
+type Reg = (o: THREE.Object3D | null) => void
 
-function WireWheel({ position }: { position: [number, number, number] }) {
+function WireWheel({ position, reg }: { position: [number, number, number]; reg: Reg }) {
   return (
     <group position={position} rotation={[0, 0, Math.PI / 2]}>
+     <group ref={reg}>
       <mesh castShadow>
         <cylinderGeometry args={[0.41, 0.41, 0.23, 28, 1, true]} />
         <meshStandardMaterial color="#8d8f93" metalness={0.8} roughness={0.4} wireframe />
@@ -90,11 +165,12 @@ function WireWheel({ position }: { position: [number, number, number] }) {
         <cylinderGeometry args={[0.12, 0.12, 0.25, 12]} />
         {std(DARK)}
       </mesh>
+     </group>
     </group>
   )
 }
 
-function LRV() {
+function LRV({ reg }: { reg: Reg }) {
   return (
     <group position={[0, 0, 0]}>
       {/* chassis */}
@@ -114,10 +190,10 @@ function LRV() {
           <meshStandardMaterial color="#e6e2d6" side={THREE.DoubleSide} roughness={0.7} />
         </mesh>
       ))}
-      <WireWheel position={[-0.68, 0.41, 1.05]} />
-      <WireWheel position={[0.68, 0.41, 1.05]} />
-      <WireWheel position={[-0.68, 0.41, -1.05]} />
-      <WireWheel position={[0.68, 0.41, -1.05]} />
+      <WireWheel reg={reg} position={[-0.68, 0.41, 1.05]} />
+      <WireWheel reg={reg} position={[0.68, 0.41, 1.05]} />
+      <WireWheel reg={reg} position={[-0.68, 0.41, -1.05]} />
+      <WireWheel reg={reg} position={[0.68, 0.41, -1.05]} />
       {/* seats */}
       {[-0.28, 0.28].map((x) => (
         <group key={x} position={[x, 0.62, -0.1]}>
@@ -338,12 +414,23 @@ function Alsep() {
   )
 }
 
-function Sojourner() {
+function Sojourner({ reg }: { reg: Reg }) {
   const wheel = (x: number, z: number, k: number) => (
-    <mesh key={k} position={[x, 0.065, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
-      <cylinderGeometry args={[0.065, 0.065, 0.08, 20]} />
-      {std('#9ea3aa', { metalness: 0.8 })}
-    </mesh>
+    <group key={k} position={[x, 0.065, z]} rotation={[0, 0, Math.PI / 2]}>
+      <group ref={reg}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.065, 0.065, 0.08, 20]} />
+          {std('#9ea3aa', { metalness: 0.8 })}
+        </mesh>
+        {/* cleats so the spin is visible */}
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <mesh key={i} rotation={[0, (i / 6) * Math.PI * 2, 0]} position={[Math.cos((i / 6) * Math.PI * 2) * 0.066, 0, -Math.sin((i / 6) * Math.PI * 2) * 0.066]}>
+            <boxGeometry args={[0.008, 0.085, 0.012]} />
+            {std(DARK)}
+          </mesh>
+        ))}
+      </group>
+    </group>
   )
   return (
     <group scale={3.2}>

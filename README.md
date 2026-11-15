@@ -7,6 +7,14 @@ Fly to the Moon, Mars or deep space, find the glowing "ghost" signals at real la
 and hear 15 retired machines tell their own story in first person, chapter by chapter, with the
 camera moving around a 3D model of each one.
 
+## Mission movies
+Every artifact plays as a short 3D film, told in first person, in seven phases:
+**Launch** (rocket on the pad, liftoff, staging) → **Cruise** (Earth to destination, day counter) →
+**Arrival** (Mars entry with heat shield and parachute, airbags, sky crane, lunar descent, orbit insertion) →
+**Mission** (driving with wheel tracks, digging, flying, lift-off) → **Discovery** (seismic cutaway of Mars/Moon,
+exoplanet transit light curve, Jupiter flyby) → **Legacy** → **Today** (dust storms, frost, signal lost).
+Pause any time to orbit the scene.
+
 ## Features
 - 3D hub, rotating Moon and Mars globes with pins at real lat/lon, schematic deep space map
 - 15 artifacts: Surveyor, Apollo 11 LM Eagle, ALSEP, LRV, Viking 1 & 2, Sojourner, Spirit, Opportunity,
@@ -28,5 +36,6 @@ Vite, React, TypeScript, three.js, @react-three/fiber, @react-three/drei
 
 ## Data and asset sources
 - Challenge resources: NSSDCA, NASA Science mission pages (full list in `src/data/resources.ts` and the in-app Sources panel)
-- 3D models and planet textures: [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources)
+- 3D models (incl. Saturn V, Perseverance) and planet textures: [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources)
+- Atlas-Centaur, Titan IIIE, Delta II, Atlas V rockets, aeroshells, parachutes and sky crane are simplified models built for this project
 - Moon map: NASA SVS CGI Moon Kit (LRO LROC color)

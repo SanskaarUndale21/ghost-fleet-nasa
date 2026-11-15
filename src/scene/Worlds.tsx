@@ -4,8 +4,11 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { CameraControls as CC } from '@react-three/drei'
 import { ARTIFACTS, type Artifact, type World } from '../data/artifacts'
-import { ArtifactModel } from './Models'
-import { fbm, latLonToVec } from './util'
+import type { Act, Beat } from '../data/missions'
+import { Actor } from './Actor'
+import { Weather } from './Effects'
+import { motion } from './motionState'
+import { fbm, latLonToVec, terrainHeight } from './util'
 
 type Ctl = CC | null
 const useCtl = () => useThree((s) => s.controls) as unknown as Ctl
@@ -527,24 +530,43 @@ function SpaceProbe({
 }
 
 /* ───────────── ARTIFACT STAGE ───────────── */
-export function ArtifactStage({ a, chapter }: { a: Artifact; chapter: number }) {
+export function ArtifactStage({ a, beat, replay }: { a: Artifact; beat: Beat; replay: number }) {
+  const liftIdx = a.chapters.findIndex((b) => b.act === 'liftoff')
+  const ascentGone = liftIdx >= 0 && a.chapters.indexOf(beat) > liftIdx
   const ctl = useCtl()
   const grounded = a.backdrop === 'moon' || a.backdrop === 'mars' || a.backdrop === 'eros'
   const target = new THREE.Vector3(0, grounded ? 1.1 : 0, 0)
   const width = useThree((s) => s.size.width)
+  const act: Act = beat.act ?? 'idle'
+  const shake = useRef<THREE.Group>(null)
+  const sun = useRef<THREE.DirectionalLight>(null)
+  const hemi = useRef<THREE.HemisphereLight>(null)
+  const scene = useThree((s) => s.scene)
+  const base = a.backdrop === 'moon' ? 3.4 : 2.6
 
   useEffect(() => {
     if (!ctl) return
-    const [az, pol, mul] = a.chapters[Math.min(chapter, a.chapters.length - 1)].cam
+    ctl.enabled = true
+    const [az, pol, mul] = beat.cam ?? [40, 70, 1]
     const size = a.model.type === 'glb' ? a.model.size ?? 3 : 3
-    const d = Math.max(3.2, 6.2 * mul * (size / 3)) * (width > 760 ? 1 : 1.7)
+    let d = Math.max(3.2, 6.2 * mul * (size / 3)) * (width > 760 ? 1 : 1.7)
     target.y = grounded ? Math.min(1.1, size * 0.33) : 0
+    if (act === 'skycrane') {
+      d = 17
+      target.y = 4.5
+    } else if (act === 'dropoff') {
+      d = 10
+      target.set(0, 1, 2)
+    } else if (act === 'fly') {
+      d = Math.max(d, 7)
+      target.y = 1.5
+    }
     const s = new THREE.Spherical(d, THREE.MathUtils.degToRad(pol), THREE.MathUtils.degToRad(az))
     const p = new THREE.Vector3().setFromSpherical(s).add(target)
     ctl.setLookAt(p.x, Math.max(p.y, grounded ? 0.4 : -99), p.z, target.x, target.y, target.z, true)
-  }, [ctl, a, chapter, width]) // eslint-disable-line
+  }, [ctl, a, beat, width, replay]) // eslint-disable-line
 
-  // shift subject left of the story panel (desktop only)
+  // shift subject left of the story panel (desktop) or up (mobile)
   useEffect(() => {
     if (!ctl) return
     const size = a.model.type === 'glb' ? a.model.size ?? 3 : 3
@@ -554,33 +576,49 @@ export function ArtifactStage({ a, chapter }: { a: Artifact; chapter: number }) 
     }
   }, [ctl, a, width])
 
+  useFrame(() => {
+    const q = motion.quake
+    if (shake.current) shake.current.position.set((Math.random() - 0.5) * q * 0.12, (Math.random() - 0.5) * q * 0.06, (Math.random() - 0.5) * q * 0.12)
+    const k = 1 - motion.dim
+    if (sun.current) sun.current.intensity = base * k * (1 - motion.storm * 0.6)
+    if (hemi.current) hemi.current.intensity = (a.backdrop === 'mars' ? 0.7 : 0.25) * (0.4 + 0.6 * k)
+    if (scene.fog && scene.fog instanceof THREE.Fog) {
+      scene.fog.near = 18 - motion.storm * 16
+      scene.fog.far = 60 - motion.storm * 48
+    }
+  })
+
   return (
     <>
       {a.backdrop === 'mars' ? <MarsSky /> : <SpaceSky dim={a.backdrop === 'moon' ? 0.8 : 1} />}
-      <hemisphereLight args={[a.backdrop === 'mars' ? '#f3c7a0' : '#9fb0d0', a.backdrop === 'mars' ? '#5a2f1c' : '#222', a.backdrop === 'mars' ? 0.7 : 0.25]} />
+      <hemisphereLight ref={hemi} args={[a.backdrop === 'mars' ? '#f3c7a0' : '#9fb0d0', a.backdrop === 'mars' ? '#5a2f1c' : '#222', a.backdrop === 'mars' ? 0.7 : 0.25]} />
       <directionalLight
+        ref={sun}
         position={a.backdrop === 'moon' ? [10, 6, 4] : [8, 10, 6]}
-        intensity={a.backdrop === 'moon' ? 3.4 : 2.6}
+        intensity={base}
         color={a.backdrop === 'mars' ? '#ffe2c4' : '#ffffff'}
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-8}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
         shadow-bias={-0.0004}
       />
-      {(a.backdrop === 'moon' || a.backdrop === 'mars') && <Terrain kind={a.backdrop} />}
+      <group ref={shake}>
+        {(a.backdrop === 'moon' || a.backdrop === 'mars') && <Terrain kind={a.backdrop} />}
+        {a.backdrop === 'eros' && <ErosSurface />}
+        <Suspense fallback={<LoadingProbe />}>
+          <Floaty enabled={!grounded && act !== 'drift'}>
+            <Actor key={a.id + ':' + replay} a={a} act={act} ground={a.backdrop === 'moon' || a.backdrop === 'mars' ? a.backdrop : null} replay={replay} ascentGone={ascentGone} />
+          </Floaty>
+        </Suspense>
+      </group>
       {a.backdrop === 'moon' && <EarthInSky />}
-      {a.backdrop === 'eros' && <ErosSurface />}
       {a.backdrop === 'ceres' && <CeresBackdrop />}
       {a.backdrop === 'earthTrail' && <DistantEarth />}
       {a.backdrop === 'void' && <DistantSun />}
-      <Suspense fallback={<LoadingProbe />}>
-        <Floaty enabled={!grounded}>
-          <ArtifactModel key={a.id} spec={a.model} grounded={grounded} spin={!grounded} />
-        </Floaty>
-      </Suspense>
+      <Weather />
     </>
   )
 }
@@ -615,30 +653,8 @@ function Terrain({ kind }: { kind: 'moon' | 'mars' }) {
     const g = new THREE.PlaneGeometry(90, 90, 220, 220)
     g.rotateX(-Math.PI / 2)
     const p = g.attributes.position as THREE.BufferAttribute
-    const craters =
-      kind === 'moon'
-        ? [
-            [9, -6, 4, 0.9],
-            [-12, 4, 6, 1.3],
-            [5, 14, 3, 0.6],
-            [-6, -14, 2.5, 0.5],
-            [20, 10, 8, 1.8],
-          ]
-        : [
-            [12, -9, 5, 0.8],
-            [-16, 10, 7, 1.1],
-          ]
     for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), z = p.getZ(i)
-      const d = Math.hypot(x, z)
-      const flat = THREE.MathUtils.smoothstep(d, 3, 14)
-      let h = (fbm(x * 0.08, z * 0.08, 5) - 0.5) * (kind === 'mars' ? 3.2 : 2.2) * flat
-      h += (fbm(x * 0.6, z * 0.6, 3) - 0.5) * 0.12
-      if (kind === 'mars') h += THREE.MathUtils.smoothstep(d, 25, 45) * 6 * fbm(x * 0.03 + 3, z * 0.03, 3)
-      for (const [cx, cz, r, depth] of craters) {
-        const cd = Math.hypot(x - cx, z - cz) / r
-        if (cd < 1.4) h += cd < 1 ? -depth * (1 - cd * cd) : depth * 0.35 * Math.sin(((cd - 1) / 0.4) * Math.PI)
-      }
+      const h = terrainHeight(kind, p.getX(i), p.getZ(i))
       p.setY(i, h)
     }
     g.computeVertexNormals()

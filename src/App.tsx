@@ -6,6 +6,10 @@ import { ARTIFACTS, WORLD_META, byId, type Artifact, type World } from './data/a
 import { ASSET_CREDITS, CHALLENGE_URL, RESOURCES } from './data/resources'
 import { preloadModels } from './scene/Models'
 import { ArtifactStage, DeepSpace, Globe, Hub } from './scene/Worlds'
+import { CruiseScene, EntryScene, FlybyScene, InteriorScene, LaunchScene, OrbitScene, TransitScene } from './scene/Cinematic'
+import { playback, resetMotion } from './scene/motionState'
+import type { Beat, Phase } from './data/missions'
+import { Hud } from './Hud'
 import './App.css'
 
 type View = { mode: 'hub' } | { mode: 'world'; world: World } | { mode: 'artifact'; id: string; from: World }
@@ -28,6 +32,9 @@ export default function App() {
   const [visited, setVisited] = useState<Set<string>>(loadVisited)
   const [showSources, setShowSources] = useState(false)
   const [intro, setIntro] = useState(true)
+  const [replay, setReplay] = useState(0)
+  const [playing, setPlaying] = useState(true)
+  playback.paused = !playing
 
   const markVisited = useCallback((id: string) => {
     setVisited((prev) => {
@@ -49,6 +56,7 @@ export default function App() {
   const openArtifact = (id: string) => {
     const a = byId(id)
     setChapter(0)
+    setPlaying(true)
     setView({ mode: 'artifact', id, from: a.world })
   }
   const back = () => {
@@ -102,7 +110,7 @@ export default function App() {
           {view.mode === 'world' && view.world === 'deep' && (
             <DeepSpace selected={selected} onSelect={setSelected} visited={visited} />
           )}
-          {current && <ArtifactStage a={current} chapter={Math.min(chapter, current.chapters.length - 1)} />}
+          {current && <MissionScene key={current.id + ':' + Math.min(chapter, current.chapters.length - 1) + ':' + replay} a={current} beat={current.chapters[Math.min(chapter, current.chapters.length - 1)]} replay={replay} />}
         </Suspense>
       </Canvas>
 
@@ -122,7 +130,17 @@ export default function App() {
         <WorldPanel world={view.world} selected={selected} onSelect={setSelected} onOpen={openArtifact} visited={visited} />
       )}
       {current && (
+        <>
+          <Hud a={current} beat={current.chapters[Math.min(chapter, current.chapters.length - 1)]} idx={chapter * 1000 + replay} />
+          <div className="scene-fade" key={current.id + chapter + ':' + replay} />
+        </>
+      )}
+      {current && (
         <StoryPanel
+          playing={playing}
+          setPlaying={setPlaying}
+          replay={replay}
+          onReplay={() => setReplay((r) => r + 1)}
           a={current}
           chapter={chapter}
           setChapter={setChapter}
@@ -203,13 +221,12 @@ function Intro({ onGo }: { onGo: () => void }) {
         </h1>
         <p>
           Since 1966, NASA has left rovers, landers, science stations and probes on the Moon, on Mars and drifting through
-          deep space. Each one has a story. Fly to a world, find the glowing ghost signals, and let the machines tell you
-          what they discovered, in their own words.
+          deep space. Each one has a story. Fly to a world, find the glowing ghost signals, and watch each machine's whole mission: from launch on Earth, across space, to its landing, its discoveries, and where it rests today. Told in its own words.
         </p>
         <button className="cta" onClick={onGo} autoFocus>
           Begin exploring
         </button>
-        <p className="hint">Drag to orbit · scroll to zoom · ← → to change chapters · Esc to go back</p>
+        <p className="hint">Stories play like a film · pause any time to orbit the 3D scene · ← → skip scenes · Esc to go back</p>
       </div>
     </div>
   )
@@ -310,7 +327,7 @@ function WorldPanel({
           </p>
           <div className="row">
             <button className="cta" onClick={() => onOpen(sel.id)}>
-              Hear the story →
+              ▶ Watch the full mission
             </button>
             <button className="ghost-btn" onClick={() => onSelect(null)}>
               Close
@@ -322,17 +339,54 @@ function WorldPanel({
   )
 }
 
+/* ───────────── mission playback ───────────── */
+function MissionScene({ a, beat, replay }: { a: Artifact; beat: Beat; replay: number }) {
+  useMemo(() => resetMotion(), [a.id, beat, replay]) // eslint-disable-line
+  switch (beat.scene) {
+    case 'launch':
+      return <LaunchScene a={a} beat={beat} />
+    case 'cruise':
+      return <CruiseScene a={a} beat={beat} />
+    case 'entry':
+      return <EntryScene a={a} beat={beat} />
+    case 'orbit':
+      return <OrbitScene a={a} beat={beat} />
+    case 'flyby':
+      return <FlybyScene a={a} beat={beat} />
+    case 'interior':
+      return <InteriorScene beat={beat} />
+    case 'transit':
+      return <TransitScene beat={beat} />
+    default:
+      return <ArtifactStage a={a} beat={beat} replay={replay} />
+  }
+}
+
+const MIN_DUR: Partial<Record<string, number>> = {
+  launch: 21, cruise: 16, entry: 14, orbit: 12, flyby: 16, interior: 12, transit: 14,
+  land: 10, bounce: 11, airbag: 10, skycrane: 14, dropoff: 12, fly: 15, liftoff: 12, deploy: 7, crash: 11, driveIn: 9,
+}
+function beatDuration(b: Beat) {
+  const words = b.text.split(/\s+/).length
+  const read = words / 2.7 + 2.5
+  const min = (b.scene === 'stage' ? MIN_DUR[b.act ?? ''] : MIN_DUR[b.scene]) ?? 9
+  return Math.max(read, min)
+}
+
+const PHASES: Phase[] = ['Launch', 'Cruise', 'Arrival', 'Mission', 'Discovery', 'Legacy', 'Today']
+
 /* speech */
-function speak(text: string) {
+function speak(text: string, onEnd?: () => void) {
   try {
     const s = window.speechSynthesis
     s.cancel()
     const u = new SpeechSynthesisUtterance(text)
-    u.rate = 0.95
-    u.pitch = 0.9
+    u.rate = 0.98
+    u.pitch = 0.95
+    if (onEnd) u.onend = onEnd
     s.speak(u)
   } catch {
-    /* unsupported */
+    onEnd?.()
   }
 }
 function stopSpeech() {
@@ -350,6 +404,10 @@ function StoryPanel({
   onBack,
   onComplete,
   done,
+  playing,
+  setPlaying,
+  replay,
+  onReplay,
 }: {
   a: Artifact
   chapter: number
@@ -357,60 +415,102 @@ function StoryPanel({
   onBack: () => void
   onComplete: () => void
   done: boolean
+  playing: boolean
+  setPlaying: (b: boolean) => void
+  replay: number
+  onReplay: () => void
 }) {
   const total = a.chapters.length
   const onQuiz = chapter >= total
   const ch = a.chapters[Math.min(chapter, total - 1)]
   const [narrate, setNarrate] = useState(false)
   const [pick, setPick] = useState<number | null>(null)
+  const dur = beatDuration(ch)
+  const [collapsed, setCollapsed] = useState(false)
 
+  useEffect(() => setPick(null), [a.id])
+
+  // auto-advance: wait for the scene's minimum time and (if narrating) the end of speech
   useEffect(() => {
-    setPick(null)
-  }, [a.id])
-  useEffect(() => {
-    if (narrate && !onQuiz) speak(`${ch.title}. ${ch.text}`)
+    if (onQuiz) {
+      stopSpeech()
+      return
+    }
+    let timeDone = false
+    let speechDone = !narrate
+    let cancelled = false
+    const next = () => {
+      if (!cancelled && timeDone && speechDone && playing) setChapter(chapter + 1)
+    }
+    if (narrate)
+      speak(`${ch.title}. ${ch.text}`, () => {
+        speechDone = true
+        next()
+      })
     else stopSpeech()
-  }, [narrate, chapter, a.id]) // eslint-disable-line
+    const id = window.setTimeout(() => {
+      timeDone = true
+      next()
+    }, dur * 1000)
+    return () => {
+      cancelled = true
+      clearTimeout(id)
+    }
+  }, [chapter, playing, narrate, replay, a.id]) // eslint-disable-line
   useEffect(() => () => stopSpeech(), [])
 
+  const phaseIdx = PHASES.indexOf(ch.phase)
+
   return (
-    <aside className="story" aria-label={`Story of ${a.name}`}>
-      <button className="back" onClick={onBack}>
-        ← Back to map
-      </button>
-      <p className="eyebrow">
-        {a.span} · {a.where}
-      </p>
+    <aside className={'story' + (collapsed ? ' collapsed' : '')} aria-label={`Story of ${a.name}`}>
+      <div className="story-head">
+        <button className="back" onClick={onBack}>
+          ← Back to map
+        </button>
+        <button className="collapse" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand story' : 'Collapse story'}>
+          {collapsed ? '▴' : '▾'}
+        </button>
+      </div>
       <h2>{a.name}</h2>
       <p className="tagline">“{a.tagline}”</p>
 
-      <div className="chapters" role="tablist" aria-label="Chapters">
-        {a.chapters.map((c, i) => (
+      <ol className="phases" aria-label="Mission phases">
+        {PHASES.map((p, i) => {
+          const first = a.chapters.findIndex((b) => b.phase === p)
+          if (first < 0) return null
+          return (
+            <li key={p} className={(i === phaseIdx && !onQuiz ? 'on ' : '') + (i < phaseIdx || onQuiz ? 'past' : '')}>
+              <button onClick={() => setChapter(first)}>{p}</button>
+            </li>
+          )
+        })}
+      </ol>
+
+      <div className="beats" role="tablist" aria-label="Story beats">
+        {a.chapters.map((b, i) => (
           <button
             key={i}
             role="tab"
             aria-selected={chapter === i}
             className={chapter === i ? 'on' : i < chapter ? 'past' : ''}
             onClick={() => setChapter(i)}
-            title={c.title}
+            title={`${b.phase}: ${b.title}`}
           >
-            {i + 1}
+            {chapter === i && !onQuiz && (
+              <i className="fill" key={chapter + ':' + replay} style={{ animationDuration: dur + 's', animationPlayState: playing ? 'running' : 'paused' }} />
+            )}
           </button>
         ))}
-        <button
-          role="tab"
-          aria-selected={onQuiz}
-          className={'quiz-tab ' + (onQuiz ? 'on' : '')}
-          onClick={() => setChapter(total)}
-          title="Mission check"
-        >
+        <button role="tab" aria-selected={onQuiz} className={'quiz-tab ' + (onQuiz ? 'on' : '')} onClick={() => setChapter(total)} title="Mission check">
           ?
         </button>
       </div>
 
       {!onQuiz ? (
         <article className="chapter" key={a.id + chapter}>
-          <p className="voice">{a.voice} speaking · chapter {chapter + 1} of {total}</p>
+          <p className="voice">
+            {a.voice} · {chapter + 1}/{total}
+          </p>
           <h3>{ch.title}</h3>
           <p className="text">{ch.text}</p>
         </article>
@@ -435,9 +535,7 @@ function StoryPanel({
           </div>
           {pick !== null && (
             <p className="verdict" role="status">
-              {pick === a.quiz.answer
-                ? `Correct. ${a.voice} has been added to your ghost fleet log.`
-                : 'Not quite. Re-read the chapters and try again.'}
+              {pick === a.quiz.answer ? `Correct. ${a.voice} is now in your ghost fleet log.` : 'Not quite. Replay the story and try again.'}
               {pick !== a.quiz.answer && (
                 <button className="link" onClick={() => setPick(null)}>
                   Retry
@@ -446,24 +544,41 @@ function StoryPanel({
             </p>
           )}
           {done && pick === null && <p className="verdict">Already in your log ◉</p>}
+          <button className="ghost-btn" style={{ marginTop: 12 }} onClick={() => setChapter(0)}>
+            ↺ Watch again from launch
+          </button>
         </article>
       )}
 
-      <div className="nav-row">
-        <button className="ghost-btn" disabled={chapter === 0} onClick={() => setChapter(chapter - 1)}>
-          ← Prev
+      <div className="player">
+        <button className="ghost-btn icon" disabled={chapter === 0} onClick={() => setChapter(chapter - 1)} aria-label="Previous">
+          ⏮
+        </button>
+        <button className="cta play" onClick={() => setPlaying(!playing)} aria-pressed={playing} disabled={onQuiz}>
+          {playing ? '❚❚ Pause' : '▶ Play'}
+        </button>
+        <button className="ghost-btn icon" disabled={chapter >= total} onClick={() => setChapter(chapter + 1)} aria-label="Next">
+          ⏭
+        </button>
+        <button className="ghost-btn icon" onClick={onReplay} disabled={onQuiz} aria-label="Replay this scene" title="Replay scene">
+          ↻
         </button>
         <button className={'ghost-btn' + (narrate ? ' active' : '')} onClick={() => setNarrate(!narrate)} aria-pressed={narrate}>
-          {narrate ? '■ Stop voice' : '▶ Read aloud'}
-        </button>
-        <button className="ghost-btn" disabled={chapter >= total} onClick={() => setChapter(chapter + 1)}>
-          Next →
+          {narrate ? '■ Voice' : '🔊 Voice'}
         </button>
       </div>
 
-      <details className="drawer" open>
+      <details className="drawer">
         <summary>Mission data</summary>
         <dl className="facts">
+          <div>
+            <dt>Rocket</dt>
+            <dd>{a.mission.rocketName}</dd>
+          </div>
+          <div>
+            <dt>Launch site</dt>
+            <dd>{a.mission.site}</dd>
+          </div>
           {a.facts.map((f) => (
             <div key={f.k}>
               <dt>{f.k}</dt>

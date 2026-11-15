@@ -28,3 +28,34 @@ export function fbm(x: number, y: number, oct = 4) {
   }
   return s
 }
+
+// terrain height shared by mesh + anything that drives on it
+const CRATERS: Record<'moon' | 'mars', number[][]> = {
+  moon: [
+    [9, -6, 4, 0.9],
+    [-12, 4, 6, 1.3],
+    [5, 14, 3, 0.6],
+    [-6, -14, 2.5, 0.5],
+    [20, 10, 8, 1.8],
+  ],
+  mars: [
+    [12, -9, 5, 0.8],
+    [-16, 10, 7, 1.1],
+  ],
+}
+export function terrainHeight(kind: 'moon' | 'mars', x: number, z: number) {
+  const d = Math.hypot(x, z)
+  const s = Math.min(Math.max((d - 3) / 11, 0), 1)
+  const flat = s * s * (3 - 2 * s)
+  let h = (fbm(x * 0.08, z * 0.08, 5) - 0.5) * (kind === 'mars' ? 3.2 : 2.2) * flat
+  h += (fbm(x * 0.6, z * 0.6, 3) - 0.5) * 0.12
+  if (kind === 'mars') {
+    const s2 = Math.min(Math.max((d - 25) / 20, 0), 1)
+    h += s2 * s2 * (3 - 2 * s2) * 6 * fbm(x * 0.03 + 3, z * 0.03, 3)
+  }
+  for (const [cx, cz, r, depth] of CRATERS[kind]) {
+    const cd = Math.hypot(x - cx, z - cz) / r
+    if (cd < 1.4) h += cd < 1 ? -depth * (1 - cd * cd) : depth * 0.35 * Math.sin(((cd - 1) / 0.4) * Math.PI)
+  }
+  return h
+}
